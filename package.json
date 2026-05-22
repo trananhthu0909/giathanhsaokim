@@ -1,0 +1,14 @@
+{
+  "name": "giathanh-pro",
+  "version": "1.0.0",
+  "description": "GiáThành Pro – Phần mềm theo dõi giá thành sản xuất",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "keywords": ["giathanh", "san-xuat"],
+  "license": "MIT"
+}
