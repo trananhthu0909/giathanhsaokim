@@ -1,0 +1,2762 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f766e">
+<title>Quản lý Kho – Liên kết GiáThành Pro</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<style>
+:root{
+  --bg:#f8f7f5;--card:#fff;--border:#e5e3de;--border2:#ccc;
+  --text:#1c1917;--text2:#6b7280;--text3:#9ca3af;
+  --accent:#0f766e;--accent-bg:#f0fdfa;--accent-t:#0d6b64;
+  --danger:#dc2626;--danger-bg:#fef2f2;
+  --success:#16a34a;--success-bg:#f0fdf4;
+  --warn:#d97706;--warn-bg:#fffbeb;
+  --info:#2563eb;--info-bg:#eff6ff;
+  --sw:230px;--r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--text);background:var(--bg);display:flex;min-height:100vh}
+/* SIDEBAR */
+#sidebar{width:var(--sw);background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:10}
+.s-logo{padding:16px 16px 12px;border-bottom:1px solid var(--border)}
+.s-logo .a-name{font-size:15px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px}
+.s-logo .a-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.s-logo .link-gt{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--info);margin-top:6px;cursor:pointer;text-decoration:none}
+.s-logo .link-gt:hover{text-decoration:underline}
+.s-nav{padding:10px 8px;flex:1;overflow-y:auto}
+.n-sec{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:12px 8px 4px}
+.n-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--text2);font-size:13px;margin-bottom:2px;transition:.12s}
+.n-item:hover{background:var(--bg);color:var(--text)}
+.n-item.active{background:var(--accent-bg);color:var(--accent-t);font-weight:500}
+.n-item i{font-size:16px}
+.n-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px}
+.s-foot{padding:12px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)}
+/* MAIN */
+#main{margin-left:var(--sw);flex:1;padding:28px 32px;min-height:100vh}
+/* COMMON */
+.page-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px}
+.page-title{font-size:20px;font-weight:600}
+.page-sub{font-size:13px;color:var(--text2);margin-top:3px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:inherit;transition:.12s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-t)}
+.btn-sec{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-sec:hover{background:var(--bg);color:var(--text)}
+.btn-danger{background:transparent;border:1px solid var(--border);color:var(--text3)}
+.btn-danger:hover{background:var(--danger-bg);border-color:var(--danger);color:var(--danger)}
+.btn-ghost{background:transparent;border:none;color:var(--text3);padding:5px 8px}
+.btn-ghost:hover{color:var(--text);background:var(--bg)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-info{background:var(--info);color:#fff}
+.btn-info:hover{background:#1d4ed8}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r)}
+.card-p{padding:20px 24px}
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px}
+.stat-lbl{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+.stat-val{font-size:24px;font-weight:600;margin-top:5px}
+.stat-desc{font-size:12px;color:var(--text2);margin-top:2px}
+/* TABLE */
+.tbl-wrap{overflow-x:auto}
+table.dtbl{width:100%;border-collapse:collapse}
+.dtbl th{padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:var(--bg)}
+.dtbl td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.dtbl tr:last-child td{border-bottom:none}
+.dtbl tr:hover td{background:#fafaf9}
+.dtbl .num{text-align:right;font-variant-numeric:tabular-nums}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.b-green{background:var(--success-bg);color:var(--success)}
+.b-amber{background:var(--warn-bg);color:var(--warn)}
+.b-red{background:var(--danger-bg);color:var(--danger)}
+.b-blue{background:var(--info-bg);color:var(--info)}
+.b-teal{background:var(--accent-bg);color:var(--accent-t)}
+.b-gray{background:#f3f4f6;color:#6b7280}
+/* MODAL */
+.mover{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;align-items:center;justify-content:center}
+.mover.open{display:flex}
+.mbox{background:var(--card);border-radius:14px;padding:24px;width:520px;max-width:96vw;max-height:92vh;overflow-y:auto}
+.mbox-lg{width:720px}
+.mbox-xl{width:900px}
+.m-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.m-title{font-size:16px;font-weight:600}
+.m-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+/* FORM */
+.fg{margin-bottom:13px}
+.fl{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;display:block}
+.fi{width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);background:var(--card);outline:none}
+.fi:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(15,118,110,.1)}
+.fr{display:grid;gap:12px}
+.fr2{grid-template-columns:1fr 1fr}
+.fr3{grid-template-columns:1fr 1fr 1fr}
+/* PROGRESS */
+.prog-wrap{background:#e5e7eb;border-radius:4px;height:6px;overflow:hidden;margin-top:5px}
+.prog-bar{height:100%;border-radius:4px;transition:width .3s}
+/* CARD SECTION */
+.sec{background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:16px}
+.sec-hdr{padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.sec-title{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+/* ALERT */
+.alert{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:9px;margin-bottom:14px;font-size:13px;border:1px solid}
+.alert-warn{background:var(--warn-bg);border-color:#fcd34d;color:#92400e}
+.alert-danger{background:var(--danger-bg);border-color:#fca5a5;color:#991b1b}
+.alert-info{background:var(--info-bg);border-color:#93c5fd;color:#1e40af}
+.alert-success{background:var(--success-bg);border-color:#86efac;color:#14532d}
+.alert i{font-size:16px;flex-shrink:0;margin-top:1px}
+/* EMPTY */
+.empty{text-align:center;padding:48px 20px;color:var(--text2)}
+.empty i{font-size:36px;margin-bottom:10px;display:block;color:var(--text3)}
+/* CHIP */
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--card)}
+.chip.active{background:var(--accent-bg);border-color:var(--accent-t);color:var(--accent-t)}
+/* KHO ITEM */
+.mat-row-low td{background:#fff9f9}
+.mat-row-warn td{background:#fffdf5}
+/* PHIEU ROW */
+.phieu-row{display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;align-items:center;margin-bottom:8px}
+/* DANH MUC KHO */
+.dm-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px 22px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:10px}
+.dm-card:hover{border-color:var(--border2);box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.dm-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.dm-count{font-size:26px;font-weight:700}
+.dm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px}
+.nhom-tag{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.nhom-tp{background:#eff6ff;color:#1d4ed8}
+.nhom-pksx{background:#f0fdf4;color:#15803d}
+.nhom-pkbh{background:#fdf4ff;color:#7e22ce}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:0}
+.tab-item{padding:10px 18px;font-size:13px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:6px;transition:.12s}
+.tab-item:hover{color:var(--text)}
+.tab-item.active{color:var(--accent-t);border-bottom-color:var(--accent);font-weight:500}
+.dtbl2{width:100%;border-collapse:collapse}
+.dtbl2 th{padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:var(--bg)}
+.dtbl2 td{padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px}
+.dtbl2 tr:last-child td{border-bottom:none}
+.dtbl2 tr:hover td{background:#fafaf9}
+.dtbl2 .num{text-align:right}
+</style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="s-logo">
+    <div class="a-name"><i class="ti ti-building-warehouse" style="color:var(--accent)"></i>Quản lý Kho</div>
+    <div class="a-sub">Liên kết với GiáThành Pro</div>
+    <div style="margin-top:8px;padding:7px 10px;background:var(--accent-bg);border-radius:8px;border:1px solid #99f6e4">
+      <div style="font-size:11px;color:var(--accent-t);font-weight:600;margin-bottom:2px"><i class="ti ti-plug-connected" style="font-size:12px;vertical-align:-1px"></i> GiáThành Pro</div>
+      <div id="gt-status" style="font-size:11px;color:var(--text2)">Đang kiểm tra...</div>
+    </div>
+  </div>
+  <nav class="s-nav">
+    <div class="n-sec">Tổng quan</div>
+    <div class="n-item active" id="nav-dashboard" onclick="go('dashboard')"><i class="ti ti-layout-dashboard"></i>Tổng quan kho</div>
+    <div class="n-sec">Quản lý tồn kho</div>
+    <div class="n-item" id="nav-tonkho" onclick="go('tonkho')"><i class="ti ti-packages"></i>Danh sách tồn kho</div>
+    <div class="n-item" id="nav-nhap" onclick="go('nhap')"><i class="ti ti-arrow-down-circle"></i>Phiếu nhập kho</div>
+    <div class="n-item" id="nav-xuat" onclick="go('xuat')"><i class="ti ti-arrow-up-circle"></i>Phiếu xuất kho</div>
+    <div class="n-sec">Liên kết sản xuất</div>
+    <div class="n-item" id="nav-donhang" onclick="go('donhang')"><i class="ti ti-clipboard-list"></i>Đơn hàng – Nhu cầu VT<span class="n-badge" id="badge-donhang">0</span></div>
+    <div class="n-item" id="nav-lichsu" onclick="go('lichsu')"><i class="ti ti-history"></i>Lịch sử xuất nhập</div>
+    <div class="n-sec">Danh mục kho</div>
+    <div class="n-item" id="nav-danhmuc" onclick="go('danhmuc')"><i class="ti ti-layout-grid"></i>Tổng quan danh mục</div>
+    <div class="n-item" id="nav-thanh_pham" onclick="go('thanh_pham')" style="padding-left:20px"><i class="ti ti-shirt" style="color:#1d4ed8"></i>Thành phẩm</div>
+    <div class="n-item" id="nav-pk_san_xuat" onclick="go('pk_san_xuat')" style="padding-left:20px"><i class="ti ti-tools" style="color:#15803d"></i>Phụ kiện sản xuất</div>
+    <div class="n-item" id="nav-pk_ban_hang" onclick="go('pk_ban_hang')" style="padding-left:20px"><i class="ti ti-shopping-bag" style="color:#7e22ce"></i>Phụ kiện bán hàng</div>
+    <div class="n-sec">Liên kết GiáThành</div>
+    <div class="n-item" id="nav-vatu" onclick="go('vatu')"><i class="ti ti-needle-thread"></i>Vật tư từ GiáThành Pro</div>
+  </nav>
+  <div class="s-foot">
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);margin-bottom:8px">
+      <span id="kho-sync-dot">⚪</span>
+      <span id="kho-sync-txt">Đồng bộ tắt</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span><i class="ti ti-device-floppy" style="vertical-align:-2px"></i> Dùng chung gt_db</span>
+      <button class="btn btn-ghost btn-sm" onclick="syncFromGT()" title="Tải lại từ GiáThành Pro"><i class="ti ti-refresh"></i></button>
+    </div>
+    <div id="last-sync" style="font-size:11px;margin-top:4px;color:var(--text3)"></div>
+  </div>
+</aside>
+
+<main id="main">
+  <div id="pc"></div>
+</main>
+
+<!-- MODAL -->
+<div class="mover" id="mover" onclick="closeM(event)">
+  <div class="mbox" id="mbox" onclick="event.stopPropagation()">
+    <div id="mini"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// DATABASE — dùng chung localStorage gt_db với GiáThành Pro
+// Mở rộng thêm: db.khoStock và db.khoPhieu
+// ══════════════════════════════════════════
+let db = {materials:[],factories:[],products:[],orders:[],khoStock:{},khoPhieu:[],khoHang:[]};
+let st = {page:'dashboard'};
+const uid = () => Math.random().toString(36).slice(2,9);
+const fmtN = v => Math.round(v).toLocaleString('vi-VN');
+const fmt = v => fmtN(v)+' ₫';
+const today = () => new Date().toLocaleDateString('vi-VN');
+const now = () => new Date().toLocaleString('vi-VN');
+
+function loadDB(){
+  try{
+    const d = localStorage.getItem('gt_db');
+    if(d){
+      const parsed = JSON.parse(d);
+      db = parsed;
+      if(!db.orders) db.orders = [];
+      if(!db.materials) db.materials = [];
+      if(!db.products) db.products = [];
+      if(!db.factories) db.factories = [];
+      if(!db.khoStock) db.khoStock = {};
+      if(!db.khoPhieu) db.khoPhieu = [];
+      if(!db.khoHang) db.khoHang = [];
+    }
+  } catch(e){ console.error('loadDB error', e); }
+}
+
+function saveDB(){
+  try{
+    localStorage.setItem('gt_db', JSON.stringify(db));
+    document.getElementById('last-sync').textContent = 'Cập nhật: ' + now();
+  } catch(e){ alert('Lỗi lưu dữ liệu: ' + e.message); }
+}
+
+function syncFromGT(){
+  loadDB();
+  updateGTStatus();
+  render();
+  document.getElementById('last-sync').textContent = 'Tải lại: ' + now();
+}
+
+function updateGTStatus(){
+  const el = document.getElementById('gt-status');
+  const badge = document.getElementById('badge-donhang');
+  const active = (db.orders||[]).filter(o=>o.status==='inprogress'||o.status==='confirmed');
+  const matCount = (db.materials||[]).length;
+  const prodCount = (db.products||[]).length;
+  el.innerHTML = `${matCount} vật tư · ${prodCount} sản phẩm · ${active.length} đơn đang SX`;
+  if(badge) badge.textContent = active.length;
+}
+
+// ── KHO STOCK helpers ──
+function getStock(matId){ return (db.khoStock[matId]||{}).tonKho || 0; }
+function getMin(matId){ return (db.khoStock[matId]||{}).tonMin || 0; }
+function getViTri(matId){ return (db.khoStock[matId]||{}).viTri || ''; }
+
+function setStock(matId, field, val){
+  if(!db.khoStock[matId]) db.khoStock[matId] = {tonKho:0, tonMin:0, viTri:''};
+  db.khoStock[matId][field] = val;
+  saveDB();
+}
+
+// ── THÀNH PHẨM STOCK helpers (dùng key 'tp_' + productId) ──
+function getTPStock(pid){ return (db.khoStock['tp_'+pid]||{}).tonKho||0; }
+function getTPMin(pid){   return (db.khoStock['tp_'+pid]||{}).tonMin||0; }
+function getTPViTri(pid){ return (db.khoStock['tp_'+pid]||{}).viTri||''; }
+function trangThaiTP(pid){
+  const ton=getTPStock(pid), min=getTPMin(pid);
+  if(ton===0)       return{label:'Hết hàng',cls:'b-red',color:'#dc2626'};
+  if(min>0&&ton<=min) return{label:'Tồn thấp',cls:'b-red',color:'#dc2626'};
+  if(min>0&&ton<=min*1.3) return{label:'Sắp hết',cls:'b-amber',color:'#d97706'};
+  return              {label:'Có hàng', cls:'b-green',color:'#16a34a'};
+}
+
+// ── CALC — copy từ GiáThành Pro để tính giá thành ──
+function calcGT(p){
+  if(!p) return null;
+  const qty=p.qty||1;
+  const npl=(p.bom||[]).reduce((s,r)=>s+(r.dm||0)*(r.price||0)*(1+(r.hh||0)/100),0);
+  const gc=(p.processes||[]).reduce((s,r)=>s+(r.price||0),0);
+  const vc=(p.shipping||[]).reduce((s,r)=>s+(r.total>0?r.total/qty:(r.perUnit||0)),0);
+  const cost=npl+gc+vc;
+  const oh=cost*((p.overheadPct??10)/100);
+  const base=cost+oh;
+  const pr=base*((p.profitPct??20)/100);
+  const sale=base+pr;
+  const actual=p.actualPrice||0;
+  const partnerPct=p.partnerCostPct||0;
+  const partnerCost=actual>0?actual*partnerPct/100:0;
+  const actProfit=actual>0?actual-base-partnerCost:null;
+  const actPct=actual>0&&actProfit!==null?(actProfit/actual*100):null;
+  return{npl,gc,vc,cost,oh,profit:pr,sale,base,actual,actProfit,actPct,partnerCost};
+}
+
+function trangThaiTon(matId){
+  const ton = getStock(matId);
+  const min = getMin(matId);
+  if(ton === 0) return {label:'Hết hàng', cls:'b-red', color:'#dc2626'};
+  if(ton <= min) return {label:'Thiếu hàng', cls:'b-red', color:'#dc2626'};
+  if(ton <= min * 1.3) return {label:'Sắp hết', cls:'b-amber', color:'#d97706'};
+  return {label:'Đủ hàng', cls:'b-green', color:'#16a34a'};
+}
+
+// ── NAV ──
+function go(page){
+  st.page = page;
+  document.querySelectorAll('.n-item').forEach(e=>e.classList.remove('active'));
+  const el = document.getElementById('nav-'+page);
+  if(el) el.classList.add('active');
+  render();
+}
+
+function render(){
+  const el = document.getElementById('pc');
+  if(st.page==='dashboard') el.innerHTML = pDashboard();
+  else if(st.page==='tonkho')      el.innerHTML = pTonKho();
+  else if(st.page==='nhap')        el.innerHTML = pNhap();
+  else if(st.page==='xuat')        el.innerHTML = pXuat();
+  else if(st.page==='donhang')     el.innerHTML = pDonHang();
+  else if(st.page==='lichsu')      el.innerHTML = pLichSu();
+  else if(st.page==='vatu')        el.innerHTML = pVaTu();
+  else if(st.page==='danhmuc')     el.innerHTML = pDanhMuc();
+  else if(st.page==='thanh_pham')  el.innerHTML = pThanhPham();
+  else if(st.page==='pk_san_xuat') el.innerHTML = pPKSanXuat();
+  else if(st.page==='pk_ban_hang') el.innerHTML = pNhomHang('pk_ban_hang');
+  updateGTStatus();
+}
+
+// ════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════
+function pDashboard(){
+  const mats = db.materials || [];
+  const orders = (db.orders||[]).filter(o=>o.status==='inprogress'||o.status==='confirmed');
+  const phieu = db.khoPhieu || [];
+
+  let tongNhap=0, tongXuat=0;
+  phieu.forEach(p=>{if(p.type==='nhap')tongNhap++;else tongXuat++;});
+
+  let hetHang=0, sapHet=0, duHang=0;
+  mats.forEach(m=>{
+    const s = trangThaiTon(m.id);
+    if(s.label==='Hết hàng'||s.label==='Thiếu hàng') hetHang++;
+    else if(s.label==='Sắp hết') sapHet++;
+    else duHang++;
+  });
+
+  // Cảnh báo vật tư thiếu cho đơn hàng đang SX
+  const warnings = [];
+  orders.forEach(o=>{
+    const p = db.products.find(x=>x.id===o.productId);
+    if(!p) return;
+    const totalQty = (o.colors||[]).reduce((s,c)=>s+(c.qty||0),0);
+    (p.bom||[]).forEach(b=>{
+      const mat = db.materials.find(m=>m.code===b.matCode);
+      if(!mat) return;
+      const can = (b.dm||0) * totalQty * (1+(b.hh||0)/100);
+      const ton = getStock(mat.id);
+      if(ton < can){
+        warnings.push({orderCode:o.orderCode||'—', matCode:b.matCode, matName:b.matName||mat.name, can:can.toFixed(2), ton, thieu:(can-ton).toFixed(2), unit:b.unit});
+      }
+    });
+  });
+
+  // Phiếu gần đây
+  const recent = [...phieu].reverse().slice(0,8);
+
+  const warnHTML = warnings.length === 0
+    ? `<div class="alert alert-success"><i class="ti ti-circle-check"></i>Không có vật tư nào thiếu cho các đơn hàng đang sản xuất.</div>`
+    : warnings.map(w=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--border);font-size:13px">
+        <div>
+          <span class="badge b-blue" style="margin-right:8px">${w.orderCode}</span>
+          <span style="font-weight:500">${w.matName}</span>
+          <span style="color:var(--text2);margin-left:6px">(${w.matCode})</span>
+        </div>
+        <div style="text-align:right">
+          <span style="color:var(--danger);font-weight:600">Thiếu ${fmtN(+w.thieu)} ${w.unit}</span>
+          <span style="color:var(--text2);font-size:12px;margin-left:8px">Cần ${fmtN(+w.can)} / Tồn ${fmtN(w.ton)}</span>
+        </div>
+      </div>`).join('');
+
+  return`
+  <div class="page-hdr">
+    <div><div class="page-title">Tổng quan kho</div><div class="page-sub">Liên kết với GiáThành Pro — ${mats.length} vật tư · ${orders.length} đơn đang sản xuất</div></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sec" onclick="syncFromGT()"><i class="ti ti-refresh"></i>Tải lại từ GiáThành Pro</button>
+      <button class="btn btn-primary" onclick="go('nhap')"><i class="ti ti-plus"></i>Phiếu nhập</button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-lbl">Tổng vật tư</div>
+      <div class="stat-val">${mats.length}</div>
+      <div class="stat-desc">từ GiáThành Pro</div>
+    </div>
+    <div class="stat-card" style="border-color:#dc262633;background:var(--danger-bg)">
+      <div class="stat-lbl" style="color:var(--danger)">Thiếu / Hết hàng</div>
+      <div class="stat-val" style="color:var(--danger)">${hetHang}</div>
+      <div class="stat-desc">vật tư cần bổ sung</div>
+    </div>
+    <div class="stat-card" style="border-color:#d9770633;background:var(--warn-bg)">
+      <div class="stat-lbl" style="color:var(--warn)">Sắp hết</div>
+      <div class="stat-val" style="color:var(--warn)">${sapHet}</div>
+      <div class="stat-desc">dưới 130% mức tối thiểu</div>
+    </div>
+    <div class="stat-card" style="border-color:#16a34a33;background:var(--success-bg)">
+      <div class="stat-lbl" style="color:var(--success)">Đủ hàng</div>
+      <div class="stat-val" style="color:var(--success)">${duHang}</div>
+      <div class="stat-desc">vật tư trong kho</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="stat-card">
+      <div class="stat-lbl">Phiếu nhập</div>
+      <div class="stat-val">${tongNhap}</div>
+      <div class="stat-desc">tổng từ trước đến nay</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-lbl">Phiếu xuất kho</div>
+      <div class="stat-val">${tongXuat}</div>
+      <div class="stat-desc">xuất cho sản xuất</div>
+    </div>
+  </div>
+
+  <div class="sec" style="margin-bottom:16px">
+    <div class="sec-hdr">
+      <div class="sec-title"><i class="ti ti-alert-triangle" style="color:var(--warn)"></i>Vật tư thiếu theo đơn hàng đang sản xuất</div>
+      <button class="btn btn-sec btn-sm" onclick="go('donhang')"><i class="ti ti-arrow-right"></i>Xem chi tiết</button>
+    </div>
+    ${warnings.length===0
+      ? `<div style="padding:0">${warnHTML}</div>`
+      : `<div>${warnHTML}</div>`}
+  </div>
+
+  <div class="sec">
+    <div class="sec-hdr">
+      <div class="sec-title"><i class="ti ti-history" style="color:var(--accent)"></i>Giao dịch gần đây</div>
+      <button class="btn btn-sec btn-sm" onclick="go('lichsu')">Xem tất cả</button>
+    </div>
+    ${recent.length===0
+      ? `<div class="empty" style="padding:30px"><i class="ti ti-history"></i><p>Chưa có giao dịch nào.</p></div>`
+      : `<div class="tbl-wrap"><table class="dtbl">
+        <thead><tr><th>Số phiếu</th><th>Loại</th><th>Vật tư</th><th class="num">Số lượng</th><th>Đơn hàng SX</th><th>Ngày</th></tr></thead>
+        <tbody>${recent.map(p=>`<tr>
+          <td style="font-weight:500">${p.id}</td>
+          <td>${p.type==='nhap'
+            ?'<span class="badge b-teal"><i class="ti ti-arrow-down" style="font-size:11px"></i> Nhập</span>'
+            :'<span class="badge b-amber"><i class="ti ti-arrow-up" style="font-size:11px"></i> Xuất SX</span>'}</td>
+          <td><span style="font-weight:500">${p.matName||'—'}</span><br><span style="font-size:11px;color:var(--text3)">${p.matCode||''}</span></td>
+          <td class="num" style="font-weight:600;color:${p.type==='nhap'?'var(--success)':'var(--warn)'}">${p.type==='nhap'?'+':'−'}${fmtN(p.qty)} ${p.unit||''}</td>
+          <td>${p.orderCode?`<span class="badge b-blue">${p.orderCode}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
+          <td style="color:var(--text2);font-size:12px">${p.date||'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`}
+  </div>`;
+}
+
+// ════════════════════════════════════════════
+// TỒN KHO
+// ════════════════════════════════════════════
+let _tkFilter = 'all';
+function pTonKho(){
+  const mats = db.materials || [];
+  let filtered = mats;
+  if(_tkFilter==='thieu') filtered = mats.filter(m=>{const s=trangThaiTon(m.id);return s.label==='Hết hàng'||s.label==='Thiếu hàng';});
+  else if(_tkFilter==='saphet') filtered = mats.filter(m=>trangThaiTon(m.id).label==='Sắp hết');
+  else if(_tkFilter==='du') filtered = mats.filter(m=>trangThaiTon(m.id).label==='Đủ hàng');
+
+  const chips = [
+    {k:'all',l:'Tất cả ('+mats.length+')'},
+    {k:'thieu',l:'Thiếu/Hết ('+mats.filter(m=>{const s=trangThaiTon(m.id);return s.label==='Hết hàng'||s.label==='Thiếu hàng';}).length+')'},
+    {k:'saphet',l:'Sắp hết ('+mats.filter(m=>trangThaiTon(m.id).label==='Sắp hết').length+')'},
+    {k:'du',l:'Đủ hàng ('+mats.filter(m=>trangThaiTon(m.id).label==='Đủ hàng').length+')'},
+  ];
+
+  return`
+  <div class="page-hdr">
+    <div><div class="page-title">Danh sách tồn kho</div><div class="page-sub">${mats.length} vật tư từ GiáThành Pro</div></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sec" onclick="exportTonKhoExcel()"><i class="ti ti-table-export"></i>Xuất Excel</button>
+      <button class="btn btn-primary" onclick="go('nhap')"><i class="ti ti-arrow-down-circle"></i>Nhập kho</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
+    ${chips.map(c=>`<span class="chip${_tkFilter===c.k?' active':''}" onclick="_tkFilter='${c.k}';go('tonkho')">${c.l}</span>`).join('')}
+  </div>
+  ${mats.length===0
+    ?`<div class="card"><div class="empty"><i class="ti ti-packages"></i><p>Chưa có vật tư nào trong GiáThành Pro.<br>Hãy thêm vật tư trong GiáThành Pro trước.</p></div></div>`
+    :`<div class="card">
+      <div class="tbl-wrap"><table class="dtbl">
+        <thead><tr>
+          <th>Mã VT</th><th>Tên vật tư</th><th>ĐVT</th>
+          <th class="num">Tồn kho</th><th class="num">Tồn min</th><th>Vị trí</th>
+          <th>Giá nhập</th><th>NCC</th><th>Trạng thái</th><th class="no-print">Thao tác</th>
+        </tr></thead>
+        <tbody>
+          ${filtered.length===0
+            ?`<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text2)">Không có vật tư nào.</td></tr>`
+            :filtered.map(m=>{
+              const s = trangThaiTon(m.id);
+              const ton = getStock(m.id);
+              const min = getMin(m.id);
+              const pct = min>0 ? Math.min(100, (ton/min)*100) : (ton>0?100:0);
+              const barColor = s.label==='Đủ hàng'?'#16a34a':s.label==='Sắp hết'?'#d97706':'#dc2626';
+              const isSi = (m.code||'').toUpperCase().startsWith('S');
+              return`<tr class="${s.label==='Thiếu hàng'||s.label==='Hết hàng'?'mat-row-low':s.label==='Sắp hết'?'mat-row-warn':''}">
+                <td><span class="badge ${isSi?'b-red':'b-green'}" style="${isSi?'background:#fff1f2;color:#e11d48':''}'">${m.code||'—'}</span></td>
+                <td style="font-weight:500">${m.name}</td>
+                <td>${m.unit||'—'}</td>
+                <td class="num" style="font-weight:700;font-size:15px;color:${barColor}">${fmtN(ton)}</td>
+                <td class="num" style="color:var(--text2)">${fmtN(min)}</td>
+                <td style="color:var(--text2);font-size:12px">${getViTri(m.id)||'—'}</td>
+                <td class="num">${m.price?fmt(m.price):'—'}</td>
+                <td style="color:var(--text2);font-size:12px">${m.supplier||'—'}</td>
+                <td>
+                  <div><span class="badge ${s.cls}">${s.label}</span></div>
+                  <div class="prog-wrap" style="width:80px;margin-top:4px"><div class="prog-bar" style="width:${pct}%;background:${barColor}"></div></div>
+                </td>
+                <td>
+                  <div style="display:flex;gap:4px">
+                    <button class="btn btn-sec btn-sm" onclick="openCapNhatTon('${m.id}')" title="Cập nhật tồn kho"><i class="ti ti-edit"></i></button>
+                    <button class="btn btn-sec btn-sm" onclick="openNhapNhanh('${m.id}')" title="Nhập kho nhanh"><i class="ti ti-arrow-down-circle"></i></button>
+                  </div>
+                </td>
+              </tr>`;
+            }).join('')}
+        </tbody>
+      </table></div>
+    </div>`}`;
+}
+
+// ════════════════════════════════════════════
+// PHIẾU NHẬP KHO
+// ════════════════════════════════════════════
+let _nhapRows = [];
+function pNhap(){
+  const mats = db.materials || [];
+  const recent = (db.khoPhieu||[]).filter(p=>p.type==='nhap').reverse().slice(0,10);
+  return`
+  <div class="page-hdr">
+    <div><div class="page-title">Phiếu nhập kho</div><div class="page-sub">Nhập nguyên vật liệu vào kho</div></div>
+  </div>
+  <div class="sec" style="margin-bottom:16px">
+    <div class="sec-hdr"><div class="sec-title"><i class="ti ti-plus"></i>Tạo phiếu nhập mới</div></div>
+    <div style="padding:16px">
+      <div class="fr fr2" style="margin-bottom:12px">
+        <div class="fg">
+          <label class="fl">Ngày nhập</label>
+          <input class="fi" type="text" id="nhap-ngay" value="${today()}" placeholder="dd/mm/yyyy">
+        </div>
+        <div class="fg">
+          <label class="fl">Nhà cung cấp (tùy chọn)</label>
+          <input class="fi" type="text" id="nhap-ncc" placeholder="Tên nhà cung cấp...">
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Ghi chú</label>
+        <input class="fi" type="text" id="nhap-note" placeholder="Ghi chú phiếu nhập...">
+      </div>
+      <div style="margin-top:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Chi tiết vật tư nhập</div>
+        <div id="nhap-rows"></div>
+        <button class="btn btn-sec btn-sm" onclick="addNhapRow()" style="margin-top:8px"><i class="ti ti-plus"></i>Thêm vật tư</button>
+      </div>
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-sec" onclick="resetNhap()"><i class="ti ti-x"></i>Làm mới</button>
+      <button class="btn btn-primary" onclick="luuNhap()"><i class="ti ti-check"></i>Lưu phiếu nhập</button>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-hdr"><div class="sec-title"><i class="ti ti-history"></i>Phiếu nhập gần đây</div></div>
+    ${recent.length===0
+      ?`<div class="empty" style="padding:30px"><i class="ti ti-inbox"></i><p>Chưa có phiếu nhập nào.</p></div>`
+      :`<div class="tbl-wrap"><table class="dtbl">
+        <thead><tr><th>Số phiếu</th><th>Vật tư</th><th class="num">Số lượng</th><th class="num">Đơn giá</th><th>NCC</th><th>Ghi chú</th><th>Ngày</th></tr></thead>
+        <tbody>${recent.map(p=>`<tr>
+          <td style="font-weight:500;font-size:12px">${p.id}</td>
+          <td><span style="font-weight:500">${p.matName||'—'}</span><br><span style="font-size:11px;color:var(--text3)">${p.matCode||''}</span></td>
+          <td class="num" style="color:var(--success);font-weight:600">+${fmtN(p.qty)} ${p.unit||''}</td>
+          <td class="num">${p.price?fmt(p.price):'—'}</td>
+          <td style="font-size:12px;color:var(--text2)">${p.ncc||'—'}</td>
+          <td style="font-size:12px;color:var(--text2)">${p.note||'—'}</td>
+          <td style="font-size:12px;color:var(--text2)">${p.date||'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`}
+  </div>`;
+}
+
+function initNhapRows(){
+  _nhapRows = [{matId:'',qty:0,price:0}];
+  renderNhapRows();
+}
+
+function addNhapRow(){
+  _nhapRows.push({matId:'',qty:0,price:0});
+  renderNhapRows();
+}
+
+function renderNhapRows(){
+  const mats = db.materials || [];
+  const opts = mats.map(m=>`<option value="${m.id}">${m.code} — ${m.name} (${m.unit})</option>`).join('');
+  const el = document.getElementById('nhap-rows');
+  if(!el) return;
+  el.innerHTML = _nhapRows.map((r,i)=>`
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center">
+      <select class="fi" onchange="_nhapRows[${i}].matId=this.value;autoFillPrice(${i},this.value)">
+        <option value="">-- Chọn vật tư --</option>
+        ${opts}
+      </select>
+      <input type="number" class="fi" placeholder="Số lượng" value="${r.qty||''}" min="0" step="0.001"
+        onchange="_nhapRows[${i}].qty=+this.value">
+      <input type="number" class="fi" placeholder="Đơn giá ₫" value="${r.price||''}" min="0" id="nhap-price-${i}"
+        onchange="_nhapRows[${i}].price=+this.value">
+      <button class="btn btn-ghost btn-sm" onclick="_nhapRows.splice(${i},1);renderNhapRows()"><i class="ti ti-trash" style="color:var(--danger)"></i></button>
+    </div>`).join('');
+}
+
+function autoFillPrice(i, matId){
+  const mat = db.materials.find(m=>m.id===matId);
+  if(mat && mat.price){
+    _nhapRows[i].price = mat.price;
+    const el = document.getElementById('nhap-price-'+i);
+    if(el) el.value = mat.price;
+  }
+}
+
+function resetNhap(){
+  _nhapRows = [{matId:'',qty:0,price:0}];
+  renderNhapRows();
+}
+
+function luuNhap(){
+  const ngay = document.getElementById('nhap-ngay').value.trim() || today();
+  const ncc = document.getElementById('nhap-ncc').value.trim();
+  const note = document.getElementById('nhap-note').value.trim();
+  const valids = _nhapRows.filter(r=>r.matId && r.qty>0);
+  if(!valids.length){ alert('Vui lòng chọn ít nhất 1 vật tư và nhập số lượng.'); return; }
+  valids.forEach(r=>{
+    const mat = db.materials.find(m=>m.id===r.matId);
+    if(!mat) return;
+    if(!db.khoStock[r.matId]) db.khoStock[r.matId] = {tonKho:0,tonMin:0,viTri:''};
+    db.khoStock[r.matId].tonKho = (db.khoStock[r.matId].tonKho||0) + r.qty;
+    const phieuId = 'NK-'+Date.now().toString().slice(-6);
+    db.khoPhieu.push({id:phieuId, type:'nhap', matId:r.matId, matCode:mat.code, matName:mat.name, unit:mat.unit, qty:r.qty, price:r.price||mat.price||0, ncc, note, date:ngay});
+  });
+  saveDB();
+  alert(`✅ Đã lưu phiếu nhập ${valids.length} vật tư thành công!`);
+  _nhapRows = [{matId:'',qty:0,price:0}];
+  render();
+}
+
+// ════════════════════════════════════════════
+// PHIẾU XUẤT KHO
+// ════════════════════════════════════════════
+function pXuat(){
+  const orders = (db.orders||[]).filter(o=>o.status==='inprogress'||o.status==='confirmed'||o.status==='draft');
+  const mats = db.materials || [];
+  const recent = (db.khoPhieu||[]).filter(p=>p.type==='xuat').reverse().slice(0,10);
+  const orderOpts = orders.map(o=>{
+    const p = db.products.find(x=>x.id===o.productId);
+    return`<option value="${o.id}">${o.orderCode||'—'} — ${p?p.name:'Không rõ'}</option>`;
+  }).join('');
+
+  return`
+  <div class="page-hdr">
+    <div><div class="page-title">Phiếu xuất kho</div><div class="page-sub">Xuất vật tư cho sản xuất</div></div>
+  </div>
+  <div class="sec" style="margin-bottom:16px">
+    <div class="sec-hdr"><div class="sec-title"><i class="ti ti-arrow-up-circle"></i>Tạo phiếu xuất</div></div>
+    <div style="padding:16px">
+      <div class="fr fr2" style="margin-bottom:12px">
+        <div class="fg">
+          <label class="fl">Đơn hàng sản xuất (liên kết GiáThành Pro)</label>
+          <select class="fi" id="xuat-order" onchange="onChonOrder(this.value)">
+            <option value="">-- Chọn đơn hàng --</option>
+            ${orderOpts}
+            <option value="__manual">Xuất kho thủ công (không theo đơn)</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label class="fl">Ngày xuất</label>
+          <input class="fi" type="text" id="xuat-ngay" value="${today()}">
+        </div>
+      </div>
+      <div id="xuat-bom-section"></div>
+      <div class="fg">
+        <label class="fl">Ghi chú</label>
+        <input class="fi" type="text" id="xuat-note" placeholder="Ghi chú phiếu xuất...">
+      </div>
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-sec" onclick="document.getElementById('xuat-order').value='';document.getElementById('xuat-bom-section').innerHTML=''">Làm mới</button>
+      <button class="btn btn-primary" onclick="luuXuat()"><i class="ti ti-check"></i>Lưu phiếu xuất</button>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-hdr"><div class="sec-title"><i class="ti ti-history"></i>Phiếu xuất gần đây</div></div>
+    ${recent.length===0
+      ?`<div class="empty" style="padding:30px"><i class="ti ti-inbox"></i><p>Chưa có phiếu xuất nào.</p></div>`
+      :`<div class="tbl-wrap"><table class="dtbl">
+        <thead><tr><th>Số phiếu</th><th>Vật tư</th><th class="num">Số lượng</th><th>Đơn hàng</th><th>Ghi chú</th><th>Ngày</th></tr></thead>
+        <tbody>${recent.map(p=>`<tr>
+          <td style="font-weight:500;font-size:12px">${p.id}</td>
+          <td><span style="font-weight:500">${p.matName||'—'}</span><br><span style="font-size:11px;color:var(--text3)">${p.matCode||''}</span></td>
+          <td class="num" style="color:var(--warn);font-weight:600">−${fmtN(p.qty)} ${p.unit||''}</td>
+          <td>${p.orderCode?`<span class="badge b-blue">${p.orderCode}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
+          <td style="font-size:12px;color:var(--text2)">${p.note||'—'}</td>
+          <td style="font-size:12px;color:var(--text2)">${p.date||'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`}
+  </div>`;
+}
+
+function onChonOrder(orderId){
+  const sec = document.getElementById('xuat-bom-section');
+  if(!sec) return;
+  if(!orderId || orderId==='__manual'){
+    sec.innerHTML = renderXuatManual();
+    return;
+  }
+  const o = db.orders.find(x=>x.id===orderId);
+  if(!o){ sec.innerHTML=''; return; }
+  const p = db.products.find(x=>x.id===o.productId);
+  const totalQty = (o.colors||[]).reduce((s,c)=>s+(c.qty||0),0);
+
+  // Tính định mức từ BOM
+  const bomRows = (p&&p.bom||[]).map((b,i)=>{
+    const mat = db.materials.find(m=>m.code===b.matCode);
+    const can = (b.dm||0) * totalQty * (1+(b.hh||0)/100);
+    const ton = mat ? getStock(mat.id) : 0;
+    const ok = ton >= can;
+    return{b, mat, can, ton, ok, i};
+  });
+
+  sec.innerHTML = `
+  <div class="alert alert-info" style="margin-bottom:12px">
+    <i class="ti ti-info-circle"></i>
+    <div>Đơn hàng <strong>${o.orderCode||'—'}</strong> — ${p?p.name:'?'} · ${fmtN(totalQty)} sp. Định mức BOM tự động điền từ GiáThành Pro.</div>
+  </div>
+  ${bomRows.length===0?`<p style="color:var(--text2);font-size:13px">Sản phẩm này chưa có BOM trong GiáThành Pro.</p>`:`
+  <table class="dtbl" style="margin-bottom:12px">
+    <thead><tr><th>Mã VT</th><th>Tên vật tư</th><th>ĐVT</th><th class="num">Tồn kho</th><th class="num">Cần xuất</th><th class="num">Số lượng xuất</th><th>Trạng thái</th></tr></thead>
+    <tbody>${bomRows.map(({b,mat,can,ton,ok},i)=>`<tr>
+      <td><span class="badge ${(b.matCode||'').startsWith('S')?'b-red':'b-green'}">${b.matCode||'—'}</span></td>
+      <td style="font-weight:500">${b.matName||mat?.name||'—'}</td>
+      <td>${b.unit||mat?.unit||''}</td>
+      <td class="num" style="color:${ok?'var(--success)':'var(--danger)'};font-weight:600">${fmtN(ton)}</td>
+      <td class="num" style="color:var(--text2)">${can.toFixed(2)}</td>
+      <td class="num">
+        <input type="number" id="xuat-qty-${i}" value="${can.toFixed(2)}" min="0" step="0.001"
+          style="width:100px;padding:5px 8px;border:1px solid var(--border2);border-radius:6px;font-size:13px;text-align:right">
+      </td>
+      <td>${ok
+        ?`<span class="badge b-green"><i class="ti ti-check" style="font-size:11px"></i> Đủ</span>`
+        :`<span class="badge b-red"><i class="ti ti-x" style="font-size:11px"></i> Thiếu ${(can-ton).toFixed(2)} ${b.unit}</span>`}</td>
+    </tr>`).join('')}</tbody>
+  </table>`}
+  <input type="hidden" id="xuat-bom-count" value="${bomRows.length}">
+  <input type="hidden" id="xuat-bom-data" value="${encodeURIComponent(JSON.stringify(bomRows.map(r=>({matId:r.mat?.id,matCode:r.b.matCode,matName:r.b.matName||r.mat?.name,unit:r.b.unit||r.mat?.unit,orderCode:o.orderCode,orderId:o.id}))))}">`;
+}
+
+function renderXuatManual(){
+  const mats = db.materials || [];
+  const opts = mats.map(m=>`<option value="${m.id}">${m.code} — ${m.name} (${m.unit})</option>`).join('');
+  return`
+  <div style="margin-bottom:8px">
+    <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:8px;align-items:center">
+      <select class="fi" id="xuat-manual-mat">
+        <option value="">-- Chọn vật tư --</option>${opts}
+      </select>
+      <input type="number" class="fi" id="xuat-manual-qty" placeholder="Số lượng" min="0" step="0.001">
+      <div style="font-size:12px;color:var(--text2)">thủ công</div>
+    </div>
+  </div>`;
+}
+
+function luuXuat(){
+  const orderId = document.getElementById('xuat-order')?.value;
+  const ngay = document.getElementById('xuat-ngay')?.value || today();
+  const note = document.getElementById('xuat-note')?.value || '';
+
+  if(!orderId){ alert('Vui lòng chọn đơn hàng sản xuất hoặc xuất thủ công.'); return; }
+
+  if(orderId==='__manual'){
+    const matId = document.getElementById('xuat-manual-mat')?.value;
+    const qty = parseFloat(document.getElementById('xuat-manual-qty')?.value)||0;
+    if(!matId||qty<=0){ alert('Vui lòng chọn vật tư và nhập số lượng.'); return; }
+    const mat = db.materials.find(m=>m.id===matId);
+    if(!db.khoStock[matId]) db.khoStock[matId] = {tonKho:0,tonMin:0,viTri:''};
+    db.khoStock[matId].tonKho = Math.max(0,(db.khoStock[matId].tonKho||0)-qty);
+    db.khoPhieu.push({id:'XK-'+Date.now().toString().slice(-6),type:'xuat',matId,matCode:mat.code,matName:mat.name,unit:mat.unit,qty,note,date:ngay});
+    saveDB();
+    alert('✅ Đã xuất kho thủ công!');
+    render();
+    return;
+  }
+
+  const o = db.orders.find(x=>x.id===orderId);
+  const dataEl = document.getElementById('xuat-bom-data');
+  const countEl = document.getElementById('xuat-bom-count');
+  if(!dataEl||!countEl){ alert('Lỗi dữ liệu.'); return; }
+  const rows = JSON.parse(decodeURIComponent(dataEl.value));
+  const count = parseInt(countEl.value);
+  let saved = 0;
+  rows.forEach((r,i)=>{
+    const qty = parseFloat(document.getElementById('xuat-qty-'+i)?.value)||0;
+    if(qty<=0||!r.matId) return;
+    if(!db.khoStock[r.matId]) db.khoStock[r.matId]={tonKho:0,tonMin:0,viTri:''};
+    db.khoStock[r.matId].tonKho = Math.max(0,(db.khoStock[r.matId].tonKho||0)-qty);
+    db.khoPhieu.push({id:'XK-'+Date.now().toString().slice(-6)+'-'+i,type:'xuat',matId:r.matId,matCode:r.matCode,matName:r.matName,unit:r.unit,qty,orderId,orderCode:r.orderCode,note,date:ngay});
+    saved++;
+  });
+  saveDB();
+  alert(`✅ Đã xuất kho ${saved} vật tư cho đơn hàng ${o?.orderCode||''}!`);
+  render();
+}
+
+// ════════════════════════════════════════════
+// ĐƠN HÀNG – NHU CẦU VẬT TƯ
+// ════════════════════════════════════════════
+let _dhFilter = 'active';
+function pDonHang(){
+  const allOrders = db.orders || [];
+  let orders = allOrders;
+  if(_dhFilter==='active') orders = allOrders.filter(o=>o.status==='inprogress'||o.status==='confirmed');
+  else if(_dhFilter==='draft') orders = allOrders.filter(o=>o.status==='draft');
+  else if(_dhFilter==='done') orders = allOrders.filter(o=>o.status==='done');
+
+  const activeCount = allOrders.filter(o=>o.status==='inprogress'||o.status==='confirmed').length;
+
+  const chips=[
+    {k:'active',l:`Đang SX (${activeCount})`},
+    {k:'draft',l:`Nháp (${allOrders.filter(o=>o.status==='draft').length})`},
+    {k:'done',l:`Hoàn thành (${allOrders.filter(o=>o.status==='done').length})`},
+    {k:'all',l:`Tất cả (${allOrders.length})`},
+  ];
+
+  const STATUS_LABEL = {draft:'Nháp',confirmed:'Đã xác nhận',inprogress:'Đang SX',done:'Hoàn thành',cancelled:'Đã hủy'};
+  const STATUS_CLS = {draft:'b-gray',confirmed:'b-blue',inprogress:'b-amber',done:'b-green',cancelled:'b-red'};
+
+  return`
+  <div class="page-hdr">
+    <div><div class="page-title">Đơn hàng – Nhu cầu vật tư</div><div class="page-sub">Từ GiáThành Pro · ${activeCount} đơn đang sản xuất</div></div>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:16px">
+    ${chips.map(c=>`<span class="chip${_dhFilter===c.k?' active':''}" onclick="_dhFilter='${c.k}';go('donhang')">${c.l}</span>`).join('')}
+  </div>
+  ${orders.length===0
+    ?`<div class="card"><div class="empty"><i class="ti ti-clipboard-list"></i><p>Không có đơn hàng nào.</p></div></div>`
+    :orders.map(o=>{
+        const p = db.products.find(x=>x.id===o.productId);
+        const totalQty = (o.colors||[]).reduce((s,c)=>s+(c.qty||0),0);
+        const bom = (p&&p.bom)||[];
+        const st = STATUS_LABEL[o.status]||o.status;
+        const stCls = STATUS_CLS[o.status]||'b-gray';
+
+        const bomRows = bom.map(b=>{
+          const mat = db.materials.find(m=>m.code===b.matCode);
+          const can = (b.dm||0)*totalQty*(1+(b.hh||0)/100);
+          const ton = mat?getStock(mat.id):0;
+          const ok = ton>=can;
+          return{b,mat,can,ton,ok};
+        });
+        const allOk = bomRows.every(r=>r.ok);
+        const anyMissing = bomRows.some(r=>!r.ok);
+
+        return`<div class="sec" style="margin-bottom:16px">
+          <div class="sec-hdr">
+            <div class="sec-title">
+              <span class="badge b-blue">${o.orderCode||'—'}</span>
+              <span>${p?p.name:'Không rõ sản phẩm'}</span>
+              ${p?`<span class="badge b-teal" style="font-size:10px">${p.code}</span>`:''}
+              <span class="badge ${stCls}">${st}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:13px;color:var(--text2)">
+                <i class="ti ti-shirts" style="font-size:14px;vertical-align:-2px"></i>
+                ${fmtN(totalQty)} sp · Giao: ${o.deliveryDate||'—'}
+              </span>
+              ${anyMissing
+                ?`<span class="badge b-red"><i class="ti ti-alert-triangle" style="font-size:11px"></i> Thiếu vật tư</span>`
+                :`<span class="badge b-green"><i class="ti ti-check" style="font-size:11px"></i> Đủ vật tư</span>`}
+              <button class="btn btn-sec btn-sm" onclick="xuatTheoOrder('${o.id}')"><i class="ti ti-arrow-up-circle"></i>Xuất kho</button>
+            </div>
+          </div>
+          ${bom.length===0
+            ?`<div style="padding:14px 16px;font-size:13px;color:var(--text2)"><i class="ti ti-info-circle" style="vertical-align:-2px"></i> Sản phẩm này chưa có BOM trong GiáThành Pro.</div>`
+            :`<div class="tbl-wrap"><table class="dtbl">
+              <thead><tr>
+                <th>Mã VT</th><th>Tên vật tư</th><th>ĐVT</th>
+                <th class="num">Định mức/sp</th><th class="num">Tổng cần</th>
+                <th class="num">Tồn kho</th><th class="num">Cần mua thêm</th>
+                <th>Trạng thái</th>
+              </tr></thead>
+              <tbody>${bomRows.map(({b,mat,can,ton,ok})=>`<tr>
+                <td><span class="badge ${(b.matCode||'').toUpperCase().startsWith('S')?'':''} b-green">${b.matCode||'—'}</span></td>
+                <td style="font-weight:500">${b.matName||mat?.name||'—'}</td>
+                <td>${b.unit||''}</td>
+                <td class="num">${b.dm||0} ${b.hh?`<span style="color:var(--text3);font-size:11px">(+${b.hh}% hao)</span>`:''}</td>
+                <td class="num" style="font-weight:600">${can.toFixed(2)}</td>
+                <td class="num" style="color:${ok?'var(--success)':'var(--danger)'};font-weight:700">${fmtN(ton)}</td>
+                <td class="num" style="color:${ok?'var(--text3)':'var(--danger)'}">
+                  ${ok?'—':`<strong>${(can-ton).toFixed(2)}</strong>`}
+                </td>
+                <td>${ok
+                  ?`<span class="badge b-green">Đủ</span>`
+                  :`<span class="badge b-red">Thiếu ${(can-ton).toFixed(2)} ${b.unit}</span>`}</td>
+              </tr>`).join('')}</tbody>
+            </table></div>`}
+        </div>`;
+      }).join('')}`;
+}
+
+function xuatTheoOrder(orderId){
+  go('xuat');
+  setTimeout(()=>{
+    const sel = document.getElementById('xuat-order');
+    if(sel){ sel.value = orderId; onChonOrder(orderId); }
+  }, 100);
+}
+
+// ════════════════════════════════════════════
+// LỊCH SỬ
+// ════════════════════════════════════════════
+let _lsFilter = 'all';
+let _lsSearch = '';
+function pLichSu(){
+  const all = (db.khoPhieu||[]).slice().reverse();
+  let list = all;
+  if(_lsFilter==='nhap') list = all.filter(p=>p.type==='nhap');
+  else if(_lsFilter==='xuat') list = all.filter(p=>p.type==='xuat');
+  if(_lsSearch.trim()){
+    const q = _lsSearch.toLowerCase();
+    list = list.filter(p=>(p.matName||'').toLowerCase().includes(q)||(p.matCode||'').toLowerCase().includes(q)||(p.orderCode||'').toLowerCase().includes(q)||(p.id||'').toLowerCase().includes(q));
+  }
+  return`
+  <div class="page-hdr">
+    <div><div class="page-title">Lịch sử xuất nhập kho</div><div class="page-sub">${(db.khoPhieu||[]).length} giao dịch</div></div>
+    <button class="btn btn-sec" onclick="exportLichSuExcel()"><i class="ti ti-table-export"></i>Xuất Excel</button>
+  </div>
+  <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
+    <div style="display:flex;gap:6px">
+      ${[{k:'all',l:'Tất cả'},{k:'nhap',l:'Nhập kho'},{k:'xuat',l:'Xuất SX'}].map(c=>`<span class="chip${_lsFilter===c.k?' active':''}" onclick="_lsFilter='${c.k}';go('lichsu')">${c.l}</span>`).join('')}
+    </div>
+    <input type="text" value="${_lsSearch}" placeholder="Tìm mã VT, tên, đơn hàng..."
+      oninput="_lsSearch=this.value;render()"
+      style="padding:7px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;outline:none;flex:1;max-width:300px">
+  </div>
+  <div class="card">
+    ${list.length===0
+      ?`<div class="empty"><i class="ti ti-history"></i><p>Không có giao dịch nào.</p></div>`
+      :`<div class="tbl-wrap"><table class="dtbl">
+        <thead><tr>
+          <th>Số phiếu</th><th>Loại</th><th>Vật tư</th>
+          <th class="num">Số lượng</th><th class="num">Đơn giá</th>
+          <th>Đơn hàng SX</th><th>Ghi chú</th><th>Ngày</th>
+        </tr></thead>
+        <tbody>${list.map(p=>`<tr>
+          <td style="font-weight:500;font-size:11px;color:var(--text2)">${p.id}</td>
+          <td>${p.type==='nhap'
+            ?`<span class="badge b-teal"><i class="ti ti-arrow-down" style="font-size:11px"></i> Nhập</span>`
+            :`<span class="badge b-amber"><i class="ti ti-arrow-up" style="font-size:11px"></i> Xuất SX</span>`}</td>
+          <td>
+            <span style="font-weight:500">${p.matName||'—'}</span>
+            <br><span style="font-size:11px;color:var(--text3)">${p.matCode||''}</span>
+          </td>
+          <td class="num" style="color:${p.type==='nhap'?'var(--success)':'var(--warn)'};font-weight:700">
+            ${p.type==='nhap'?'+':'−'}${fmtN(p.qty)} ${p.unit||''}
+          </td>
+          <td class="num" style="color:var(--text2)">${p.price?fmt(p.price):'—'}</td>
+          <td>${p.orderCode?`<span class="badge b-blue">${p.orderCode}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
+          <td style="font-size:12px;color:var(--text2);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.note||'—'}</td>
+          <td style="font-size:12px;color:var(--text2);white-space:nowrap">${p.date||'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`}
+  </div>`;
+}
+
+// ════════════════════════════════════════════
+// VẬT TƯ TỪ GIÁTHÀNH PRO
+// ════════════════════════════════════════════
+function pVaTu(){
+  const mats = db.materials || [];
+  const matSi = mats.filter(m=>(m.code||'').toUpperCase().startsWith('S'));
+  const matNPL = mats.filter(m=>!(m.code||'').toUpperCase().startsWith('S'));
+  const matRow = m => `<tr>
+    <td><span class="badge ${(m.code||'').toUpperCase().startsWith('S')?'':'b-green'}" style="${(m.code||'').toUpperCase().startsWith('S')?'background:#fff1f2;color:#e11d48':''}'">${m.code||'—'}</span></td>
+    <td style="font-weight:500">${m.name}</td>
+    <td>${m.unit||'—'}</td>
+    <td class="num">${m.price?fmt(m.price):'—'}</td>
+    <td style="color:var(--text2);font-size:12px">${m.supplier||'—'}</td>
+    <td class="num" style="font-weight:600;color:${trangThaiTon(m.id).color}">${fmtN(getStock(m.id))}</td>
+    <td><span class="badge ${trangThaiTon(m.id).cls}">${trangThaiTon(m.id).label}</span></td>
+    <td><button class="btn btn-sec btn-sm" onclick="openCapNhatTon('${m.id}')"><i class="ti ti-settings-2"></i>Cài đặt</button></td>
+  </tr>`;
+  const thead=`<div class="tbl-wrap"><table class="dtbl"><thead><tr><th>Mã</th><th>Tên</th><th>ĐVT</th><th class="num">Giá nhập</th><th>NCC</th><th class="num">Tồn kho</th><th>Trạng thái</th><th></th></tr></thead><tbody>`;
+  const tfoot=`</tbody></table></div>`;
+  return`
+  <div class="page-hdr">
+    <div><div class="page-title">Vật tư từ GiáThành Pro</div><div class="page-sub">${mats.length} vật tư · Đồng bộ qua localStorage gt_db</div></div>
+    <button class="btn btn-sec" onclick="syncFromGT()"><i class="ti ti-refresh"></i>Tải lại</button>
+  </div>
+  ${mats.length===0
+    ?`<div class="card"><div class="empty"><i class="ti ti-database-off"></i><p>Chưa có vật tư nào.<br>Mở GiáThành Pro và thêm nguyên phụ liệu trước.</p></div></div>`
+    :`
+  <div class="sec" style="margin-bottom:16px">
+    <div class="sec-hdr">
+      <div class="sec-title" style="color:#e11d48"><i class="ti ti-circle-filled" style="font-size:13px"></i>Định mức Sỉ (${matSi.length})</div>
+    </div>
+    ${matSi.length?thead+matSi.map(m=>matRow(m)).join('')+tfoot:`<div class="empty" style="padding:24px"><i class="ti ti-circle-filled" style="color:#fca5a5"></i><p>Chưa có Sỉ nào.</p></div>`}
+  </div>
+  <div class="sec">
+    <div class="sec-hdr">
+      <div class="sec-title" style="color:var(--success)"><i class="ti ti-package"></i>Nguyên phụ liệu (${matNPL.length})</div>
+    </div>
+    ${matNPL.length?thead+matNPL.map(m=>matRow(m)).join('')+tfoot:`<div class="empty" style="padding:24px"><i class="ti ti-package"></i><p>Chưa có NPL nào.</p></div>`}
+  </div>`}`;
+}
+
+// ════════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════════
+function openM(html,lg=false){
+  document.getElementById('mini').innerHTML = html;
+  document.getElementById('mbox').className = 'mbox'+(lg?' mbox-lg':'');
+  document.getElementById('mover').classList.add('open');
+}
+function closeM(e){
+  if(!e||e.target===document.getElementById('mover'))
+    document.getElementById('mover').classList.remove('open');
+}
+
+function openCapNhatTon(matId){
+  const mat = db.materials.find(m=>m.id===matId);
+  if(!mat) return;
+  const ton = getStock(matId);
+  const min = getMin(matId);
+  const viTri = getViTri(matId);
+  openM(`
+  <div class="m-hdr">
+    <div class="m-title"><i class="ti ti-settings-2" style="color:var(--accent)"></i> Cài đặt tồn kho — ${mat.code}</div>
+    <button class="btn btn-ghost" onclick="closeM()"><i class="ti ti-x"></i></button>
+  </div>
+  <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
+    <strong>${mat.name}</strong> · ${mat.unit} · ${mat.supplier||'Chưa có NCC'}
+  </div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Tồn kho hiện tại</label><input type="number" class="fi" id="cap-ton" value="${ton}" min="0" step="0.001"></div>
+    <div class="fg"><label class="fl">Tồn kho tối thiểu (cảnh báo)</label><input type="number" class="fi" id="cap-min" value="${min}" min="0" step="0.001"></div>
+  </div>
+  <div class="fg"><label class="fl">Vị trí trong kho</label><input class="fi" id="cap-vitri" value="${viTri}" placeholder="VD: Kệ A, Tầng 2, Ngăn 3..."></div>
+  <div class="m-foot">
+    <button class="btn btn-sec" onclick="closeM()">Hủy</button>
+    <button class="btn btn-primary" onclick="saveCapNhatTon('${matId}')"><i class="ti ti-check"></i>Lưu</button>
+  </div>`);
+}
+
+function saveCapNhatTon(matId){
+  const ton = parseFloat(document.getElementById('cap-ton').value)||0;
+  const min = parseFloat(document.getElementById('cap-min').value)||0;
+  const viTri = document.getElementById('cap-vitri').value.trim();
+  if(!db.khoStock[matId]) db.khoStock[matId]={tonKho:0,tonMin:0,viTri:''};
+  db.khoStock[matId] = {tonKho:ton, tonMin:min, viTri};
+  saveDB();
+  closeM();
+  render();
+}
+
+function openNhapNhanh(matId){
+  const mat = db.materials.find(m=>m.id===matId);
+  if(!mat) return;
+  openM(`
+  <div class="m-hdr">
+    <div class="m-title"><i class="ti ti-arrow-down-circle" style="color:var(--success)"></i> Nhập kho nhanh</div>
+    <button class="btn btn-ghost" onclick="closeM()"><i class="ti ti-x"></i></button>
+  </div>
+  <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
+    <strong>${mat.code} — ${mat.name}</strong> · Tồn hiện tại: <strong>${fmtN(getStock(matId))} ${mat.unit}</strong>
+  </div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Số lượng nhập</label><input type="number" class="fi" id="nq-qty" value="" min="0" step="0.001" placeholder="0"></div>
+    <div class="fg"><label class="fl">Đơn giá nhập (₫)</label><input type="number" class="fi" id="nq-price" value="${mat.price||''}" min="0"></div>
+  </div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Nhà cung cấp</label><input class="fi" id="nq-ncc" value="${mat.supplier||''}" placeholder="NCC..."></div>
+    <div class="fg"><label class="fl">Ngày nhập</label><input class="fi" id="nq-ngay" value="${today()}"></div>
+  </div>
+  <div class="fg"><label class="fl">Ghi chú</label><input class="fi" id="nq-note" placeholder="Ghi chú..."></div>
+  <div class="m-foot">
+    <button class="btn btn-sec" onclick="closeM()">Hủy</button>
+    <button class="btn btn-primary" onclick="luuNhapNhanh('${matId}')"><i class="ti ti-check"></i>Nhập kho</button>
+  </div>`);
+}
+
+function luuNhapNhanh(matId){
+  const mat = db.materials.find(m=>m.id===matId);
+  const qty = parseFloat(document.getElementById('nq-qty').value)||0;
+  if(qty<=0){ alert('Vui lòng nhập số lượng > 0.'); return; }
+  const price = parseFloat(document.getElementById('nq-price').value)||0;
+  const ncc = document.getElementById('nq-ncc').value.trim();
+  const ngay = document.getElementById('nq-ngay').value||today();
+  const note = document.getElementById('nq-note').value.trim();
+  if(!db.khoStock[matId]) db.khoStock[matId]={tonKho:0,tonMin:0,viTri:''};
+  db.khoStock[matId].tonKho = (db.khoStock[matId].tonKho||0)+qty;
+  db.khoPhieu.push({id:'NK-'+Date.now().toString().slice(-6),type:'nhap',matId,matCode:mat.code,matName:mat.name,unit:mat.unit,qty,price,ncc,note,date:ngay});
+  saveDB();
+  closeM();
+  render();
+}
+
+// ════════════════════════════════════════════
+// XUẤT EXCEL TỒN KHO
+// ════════════════════════════════════════════
+async function exportTonKhoExcel(){
+  if(typeof ExcelJS==='undefined'){alert('Đang tải thư viện ExcelJS, vui lòng thử lại.');return;}
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Quản lý Kho — GiáThành Pro';
+  const ws = wb.addWorksheet('Tồn kho');
+  ws.columns=[
+    {header:'Mã VT',key:'code',width:14},
+    {header:'Tên vật tư',key:'name',width:32},
+    {header:'ĐVT',key:'unit',width:8},
+    {header:'Tồn kho',key:'ton',width:12},
+    {header:'Tồn min',key:'min',width:12},
+    {header:'Vị trí',key:'vitri',width:18},
+    {header:'Giá nhập (₫)',key:'price',width:14},
+    {header:'NCC',key:'ncc',width:22},
+    {header:'Trạng thái',key:'status',width:14},
+  ];
+  ws.getRow(1).font={bold:true};
+  (db.materials||[]).forEach(m=>{
+    const s = trangThaiTon(m.id);
+    ws.addRow({code:m.code,name:m.name,unit:m.unit,ton:getStock(m.id),min:getMin(m.id),vitri:getViTri(m.id),price:m.price||0,ncc:m.supplier||'',status:s.label});
+  });
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`TonKho_${today().replace(/\//g,'-')}.xlsx`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+async function exportLichSuExcel(){
+  if(typeof ExcelJS==='undefined'){alert('Đang tải thư viện ExcelJS, vui lòng thử lại.');return;}
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Lịch sử XN Kho');
+  ws.columns=[
+    {header:'Số phiếu',key:'id',width:16},{header:'Loại',key:'type',width:10},
+    {header:'Mã VT',key:'code',width:12},{header:'Tên vật tư',key:'name',width:30},
+    {header:'ĐVT',key:'unit',width:8},{header:'Số lượng',key:'qty',width:12},
+    {header:'Đơn giá',key:'price',width:12},{header:'Đơn hàng SX',key:'order',width:14},
+    {header:'Ghi chú',key:'note',width:22},{header:'Ngày',key:'date',width:14},
+  ];
+  ws.getRow(1).font={bold:true};
+  (db.khoPhieu||[]).forEach(p=>{
+    ws.addRow({id:p.id,type:p.type==='nhap'?'Nhập':'Xuất SX',code:p.matCode||'',name:p.matName||'',unit:p.unit||'',qty:p.type==='nhap'?p.qty:-p.qty,price:p.price||0,order:p.orderCode||'',note:p.note||'',date:p.date||''});
+  });
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`LichSuKho_${today().replace(/\//g,'-')}.xlsx`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+// ════════════════════════════════════════════
+// THÀNH PHẨM — liên kết trực tiếp db.products GiáThành Pro
+// ════════════════════════════════════════════
+let _tpSearch = '';
+let _tpFilter = 'all';
+let _tpTab = 'hang';   // 'hang' | 'donhang'
+
+function pThanhPham(){
+  const prods = db.products || [];
+  const orders = db.orders || [];
+
+  // Thống kê
+  const tongTon   = prods.reduce((s,p)=>s+getTPStock(p.id),0);
+  const coHang    = prods.filter(p=>getTPStock(p.id)>0).length;
+  const tonThap   = prods.filter(p=>{ const s=trangThaiTP(p.id); return s.label==='Tồn thấp'||s.label==='Hết hàng'; }).length;
+  const doneOrders= orders.filter(o=>o.status==='done');
+  // Đơn đang sx chờ nhập kho
+  const pendingOrders = orders.filter(o=>o.status==='inprogress'||o.status==='confirmed');
+
+  // Lọc sản phẩm
+  let list = prods;
+  if(_tpFilter==='cohang') list=prods.filter(p=>getTPStock(p.id)>0);
+  else if(_tpFilter==='thap') list=prods.filter(p=>{const s=trangThaiTP(p.id);return s.label!=='Có hàng'&&getTPStock(p.id)>0||s.label==='Hết hàng';});
+  if(_tpSearch.trim()){ const q=_tpSearch.toLowerCase(); list=list.filter(p=>(p.code||'').toLowerCase().includes(q)||(p.name||'').toLowerCase().includes(q)); }
+
+  const tabHang = _tpTab==='hang';
+
+  return`
+  <div class="page-hdr">
+    <div>
+      <div class="page-title" style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:9px;background:#eff6ff;display:flex;align-items:center;justify-content:center">
+          <i class="ti ti-shirt" style="color:#1d4ed8;font-size:18px"></i>
+        </div>
+        Thành phẩm
+        <span style="font-size:13px;font-weight:400;color:var(--text2);margin-left:4px">— Liên kết GiáThành Pro</span>
+      </div>
+      <div class="page-sub">${prods.length} mã hàng · ${pendingOrders.length} đơn đang sản xuất · ${doneOrders.length} đơn hoàn thành</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sec" onclick="syncFromGT()"><i class="ti ti-refresh"></i>Đồng bộ GiáThành Pro</button>
+      <button class="btn btn-sec" onclick="exportTPExcel()"><i class="ti ti-table-export"></i>Excel</button>
+      <button class="btn btn-primary" style="background:#1d4ed8" onclick="openNhapTP(null)"><i class="ti ti-arrow-down-circle"></i>Nhập thành phẩm</button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-lbl">Tổng mã hàng</div>
+      <div class="stat-val" style="color:#1d4ed8">${prods.length}</div>
+      <div class="stat-desc">từ GiáThành Pro</div>
+    </div>
+    <div class="stat-card" style="border-color:#16a34a33;background:var(--success-bg)">
+      <div class="stat-lbl" style="color:var(--success)">Đang có hàng</div>
+      <div class="stat-val" style="color:var(--success)">${coHang}</div>
+      <div class="stat-desc">mã hàng có tồn kho</div>
+    </div>
+    <div class="stat-card" style="border-color:#dc262633;background:var(--danger-bg)">
+      <div class="stat-lbl" style="color:var(--danger)">Tồn thấp / Hết</div>
+      <div class="stat-val" style="color:var(--danger)">${tonThap}</div>
+      <div class="stat-desc">cần nhập thêm</div>
+    </div>
+    <div class="stat-card" style="border-color:#d9770633;background:var(--warn-bg)">
+      <div class="stat-lbl" style="color:var(--warn)">Chờ nhập kho TP</div>
+      <div class="stat-val" style="color:var(--warn)">${pendingOrders.length}</div>
+      <div class="stat-desc">đơn hàng đang sản xuất</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="sec">
+    <div class="tab-bar">
+      <div class="tab-item${tabHang?' active':''}" onclick="_tpTab='hang';render()">
+        <i class="ti ti-shirt" style="font-size:15px"></i>Tồn kho thành phẩm
+      </div>
+      <div class="tab-item${!tabHang?' active':''}" onclick="_tpTab='donhang';render()">
+        <i class="ti ti-clipboard-list" style="font-size:15px"></i>Đơn hàng sản xuất
+        ${pendingOrders.length?`<span style="background:#d97706;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px">${pendingOrders.length}</span>`:''}
+      </div>
+    </div>
+
+    ${tabHang ? `
+    <!-- TAB TỒN KHO -->
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" value="${_tpSearch}" placeholder="Tìm mã hàng, tên sản phẩm..."
+        oninput="_tpSearch=this.value;render()"
+        style="padding:6px 11px;border:1px solid var(--border2);border-radius:7px;font-size:13px;font-family:inherit;outline:none;width:240px">
+      ${[{k:'all',l:'Tất cả ('+prods.length+')'},{k:'cohang',l:'Có hàng ('+coHang+')'},{k:'thap',l:'Tồn thấp ('+tonThap+')'}]
+        .map(c=>`<span class="chip${_tpFilter===c.k?' active':''}" onclick="_tpFilter='${c.k}';render()">${c.l}</span>`).join('')}
+    </div>
+    ${prods.length===0
+      ?`<div class="empty"><i class="ti ti-database-off"></i><p>GiáThành Pro chưa có mã hàng nào.<br>Thêm sản phẩm trong GiáThành Pro trước.</p></div>`
+      :`<div class="tbl-wrap"><table class="dtbl">
+        <thead><tr>
+          <th>Mã hàng</th><th>Tên sản phẩm</th>
+          <th class="num">Giá bán TT</th>
+          <th class="num">Tồn kho TP</th><th class="num">Tồn min</th><th>Vị trí</th>
+          <th>Trạng thái</th><th>Thao tác</th>
+        </tr></thead>
+        <tbody>
+        ${list.length===0?`<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--text2)">Không có kết quả phù hợp.</td></tr>`
+          :list.map(p=>{
+            const c = calcGT(p);
+            const s = trangThaiTP(p.id);
+            const ton = getTPStock(p.id);
+            const min = getTPMin(p.id);
+            const pct = min>0?Math.min(100,(ton/min)*100):(ton>0?100:0);
+            const barColor = s.label==='Có hàng'?'#16a34a':s.label==='Sắp hết'?'#d97706':'#dc2626';
+            const linkedOrders = orders.filter(o=>o.productId===p.id&&(o.status==='inprogress'||o.status==='confirmed'));
+            const thumb = (p.images&&p.images.length)
+              ?`<img src="${p.images[0].data}" style="width:30px;height:30px;border-radius:6px;object-fit:cover;border:1px solid var(--border);vertical-align:middle;margin-right:7px">`
+              :`<div style="width:30px;height:30px;border-radius:6px;background:var(--bg);border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-right:7px"><i class="ti ti-shirt" style="font-size:13px;color:var(--text3)"></i></div>`;
+            return`<tr class="${ton===0?'mat-row-low':s.label==='Sắp hết'?'mat-row-warn':''}">
+              <td><span class="badge" style="background:#eff6ff;color:#1d4ed8;font-weight:600">${p.code||'—'}</span></td>
+              <td style="min-width:180px">
+                <div style="display:flex;align-items:center">${thumb}<span style="font-weight:500">${p.name}</span></div>
+                ${linkedOrders.length?`<div style="margin-top:3px">${linkedOrders.map(o=>`<span class="badge b-amber" style="font-size:10px;margin-right:3px">${o.orderCode||'SX'}</span>`).join('')}</div>`:''}
+              </td>
+              <td class="num" style="color:var(--success);font-weight:600">${c&&c.actual?fmt(c.actual):'—'}</td>
+              <td class="num" style="font-weight:700;font-size:15px;color:${barColor}">${fmtN(ton)}</td>
+              <td class="num" style="color:var(--text2)">${fmtN(min)}</td>
+              <td style="font-size:12px;color:var(--text2)">${getTPViTri(p.id)||'—'}</td>
+              <td>
+                <span class="badge ${s.cls}">${s.label}</span>
+                <div class="prog-wrap" style="width:60px;margin-top:4px"><div class="prog-bar" style="width:${pct}%;background:${barColor}"></div></div>
+              </td>
+              <td>
+                <div style="display:flex;gap:4px;flex-wrap:wrap">
+                  <button class="btn btn-ghost btn-sm" title="Xem giá thành" onclick="openChiTietTP('${p.id}')"><i class="ti ti-chart-pie-2"></i></button>
+                  <button class="btn btn-ghost btn-sm" title="Nhập thành phẩm" onclick="openNhapTP('${p.id}')"><i class="ti ti-arrow-down-circle" style="color:var(--success)"></i></button>
+                  <button class="btn btn-ghost btn-sm" title="Xuất thành phẩm" onclick="openXuatTP('${p.id}')"><i class="ti ti-arrow-up-circle" style="color:var(--warn)"></i></button>
+                  <button class="btn btn-ghost btn-sm" title="Cài đặt tồn min/vị trí" onclick="openCapNhatTP('${p.id}')"><i class="ti ti-settings-2"></i></button>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table></div>`}
+    ` : `
+    <!-- TAB ĐƠN HÀNG SẢN XUẤT -->
+    ${orders.length===0
+      ?`<div class="empty" style="padding:40px"><i class="ti ti-clipboard-list"></i><p>Chưa có đơn hàng nào trong GiáThành Pro.</p></div>`
+      :`<div class="tbl-wrap"><table class="dtbl">
+        <thead><tr>
+          <th>Mã đơn</th><th>Sản phẩm</th>
+          <th class="num">SL sản xuất</th>
+          <th>Trạng thái</th><th>Ngày giao</th><th class="num">Tồn kho TP</th><th></th>
+        </tr></thead>
+        <tbody>${orders.slice().reverse().map(o=>{
+          const p=db.products.find(x=>x.id===o.productId);
+          const c=p?calcGT(p):null;
+          const totalQty=(o.colors||[]).filter(cl=>cl.siType!=='phu').reduce((s,cl)=>s+(cl.qty||0),0);
+          const STATUS={draft:{l:'Nháp',cls:'b-gray'},confirmed:{l:'Đã xác nhận',cls:'b-blue'},inprogress:{l:'Đang SX',cls:'b-amber'},done:{l:'Hoàn thành',cls:'b-green'},cancelled:{l:'Đã hủy',cls:'b-red'}};
+          const st=STATUS[o.status]||STATUS.draft;
+          const tonTP=p?getTPStock(p.id):0;
+          return`<tr>
+            <td><span class="badge b-blue">${o.orderCode||'—'}</span></td>
+            <td style="font-weight:500">${p?p.name:'—'} ${p?`<span class="badge" style="background:#eff6ff;color:#1d4ed8;font-size:10px">${p.code}</span>`:''}</td>
+            <td class="num" style="font-weight:700">${fmtN(totalQty)} sp</td>
+            <td><span class="badge ${st.cls}">${st.l}</span></td>
+            <td style="font-size:12px;color:var(--text2)">${o.deliveryDate||'—'}</td>
+            <td class="num" style="color:${tonTP>0?'var(--success)':'var(--text3)'}">
+              ${p?fmtN(tonTP)+' sp':'—'}
+            </td>
+            <td>
+              ${(o.status==='done'||o.status==='inprogress')&&p?`<button class="btn btn-sec btn-sm" style="white-space:nowrap" onclick="openNhapTPTheoOrder('${o.id}')"><i class="ti ti-arrow-down-circle" style="color:var(--success)"></i>Nhập kho TP</button>`:''}
+            </td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>`}
+    `}
+  </div>
+
+  <!-- LỊCH SỬ THÀNH PHẨM -->
+  <div class="sec" style="margin-top:16px">
+    <div class="sec-hdr"><div class="sec-title"><i class="ti ti-history"></i>Lịch sử nhập/xuất thành phẩm</div></div>
+    ${(()=>{
+      const prodIds = new Set(prods.map(p=>'tp_'+p.id));
+      // Lọc theo loại matId bắt đầu bằng 'tp_'
+      const recent = (db.khoPhieu||[]).filter(p=>p.isTP).reverse().slice(0,10);
+      if(!recent.length) return`<div style="padding:14px 16px;font-size:13px;color:var(--text2)"><i class="ti ti-info-circle" style="vertical-align:-2px"></i> Chưa có giao dịch thành phẩm nào.</div>`;
+      return`<div class="tbl-wrap"><table class="dtbl">
+        <thead><tr><th>Số phiếu</th><th>Loại</th><th>Mặt hàng</th><th class="num">Số lượng</th><th>Đơn hàng SX</th><th>Khách hàng</th><th>Ghi chú</th><th>Ngày</th></tr></thead>
+        <tbody>${recent.map(p=>`<tr>
+          <td style="font-size:11px;color:var(--text2)">${p.id}</td>
+          <td>${p.type==='nhap'?`<span class="badge b-teal"><i class="ti ti-arrow-down" style="font-size:11px"></i> Nhập TP</span>`:`<span class="badge" style="background:#fdf4ff;color:#7e22ce"><i class="ti ti-arrow-up" style="font-size:11px"></i> Xuất bán</span>`}</td>
+          <td><span style="font-weight:500">${p.matName||'—'}</span><br><span style="font-size:11px;color:var(--text3)">${p.matCode||''}</span></td>
+          <td class="num" style="color:${p.type==='nhap'?'var(--success)':'#7e22ce'};font-weight:700">${p.type==='nhap'?'+':'−'}${fmtN(p.qty)} sp</td>
+          <td>${p.orderCode?`<span class="badge b-blue">${p.orderCode}</span>`:'—'}</td>
+          <td style="font-size:12px;color:var(--text2)">${p.khachHang||'—'}</td>
+          <td style="font-size:12px;color:var(--text2)">${p.note||'—'}</td>
+          <td style="font-size:12px;color:var(--text2)">${p.date||'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+    })()}
+  </div>`;
+}
+
+// ── MODAL CHI TIẾT GIÁ THÀNH SẢN PHẨM ──
+function openChiTietTP(pid){
+  const p=db.products.find(x=>x.id===pid); if(!p) return;
+  const c=calcGT(p);
+  const ton=getTPStock(pid);
+  const orders=db.orders.filter(o=>o.productId===pid);
+  const segs=[
+    {label:'NVL',pct:c?c.npl/(c.sale||1)*100:0,color:'#16a34a'},
+    {label:'Gia công',pct:c?c.gc/(c.sale||1)*100:0,color:'#2563eb'},
+    {label:'Vận chuyển',pct:c?c.vc/(c.sale||1)*100:0,color:'#d97706'},
+    {label:'Quản lý',pct:c?c.oh/(c.sale||1)*100:0,color:'#6b7280'},
+    {label:'Lợi nhuận',pct:c?c.profit/(c.sale||1)*100:0,color:'#7c3aed'},
+  ];
+  const barHTML=segs.map(s=>`<div style="width:${Math.max(0,s.pct).toFixed(1)}%;background:${s.color};height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:600" title="${s.label}: ${s.pct.toFixed(1)}%">${s.pct>=6?s.pct.toFixed(0)+'%':''}</div>`).join('');
+  openM(`
+  <div class="m-hdr">
+    <div class="m-title"><i class="ti ti-chart-pie-2" style="color:#1d4ed8"></i> Giá thành — ${p.code} · ${p.name}</div>
+    <button class="btn btn-ghost" onclick="closeM()"><i class="ti ti-x"></i></button>
+  </div>
+  <div style="background:var(--bg);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+    <span style="color:var(--text2)">Tồn kho thành phẩm:</span>
+    <strong style="color:${ton>0?'var(--success)':'var(--danger)'};">${fmtN(ton)} sp</strong>
+  </div>
+  ${c?`
+  <div style="display:flex;height:24px;border-radius:6px;overflow:hidden;gap:1px;margin-bottom:10px">${barHTML}</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    ${segs.map(s=>`<span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:${s.color};display:inline-block"></span>${s.label} ${s.pct.toFixed(1)}%</span>`).join('')}
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+    <div class="stat-card" style="padding:11px 13px"><div class="stat-lbl">Giá thành SX / sp</div><div style="font-size:16px;font-weight:700;color:var(--info);margin-top:3px">${fmt(c.base)}</div></div>
+    <div class="stat-card" style="padding:11px 13px"><div class="stat-lbl">Giá bán đề xuất / sp</div><div style="font-size:16px;font-weight:700;color:var(--accent);margin-top:3px">${fmt(c.sale)}</div></div>
+    <div class="stat-card" style="padding:11px 13px"><div class="stat-lbl">Giá bán thực tế / sp</div><div style="font-size:16px;font-weight:700;color:var(--success);margin-top:3px">${c.actual?fmt(c.actual):'Chưa nhập'}</div></div>
+    <div class="stat-card" style="padding:11px 13px;border-color:${c.actProfit>0?'#16a34a33':'#dc262633'};background:${c.actProfit>0?'var(--success-bg)':'var(--danger-bg)'}">
+      <div class="stat-lbl">Lợi nhuận thực / sp</div>
+      <div style="font-size:16px;font-weight:700;margin-top:3px;color:${c.actProfit>0?'var(--success)':'var(--danger)'}">${c.actProfit!==null?(c.actProfit>=0?'+':'')+fmt(c.actProfit):'—'}</div>
+    </div>
+  </div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Chi phí chi tiết / sp</div>
+  <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+    ${[{l:'Nguyên vật liệu (NPL)',v:c.npl,cl:'#16a34a'},{l:'Gia công xưởng',v:c.gc,cl:'#2563eb'},{l:'Vận chuyển',v:c.vc,cl:'#d97706'},{l:'Quản lý & bán hàng',v:c.oh,cl:'#6b7280'}]
+      .map(r=>`<div style="display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="color:var(--text2);display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:${r.cl};display:inline-block"></span>${r.l}</span>
+        <span style="font-weight:500">${fmt(r.v)}</span>
+      </div>`).join('')}
+    <div style="display:flex;justify-content:space-between;padding:10px 12px;font-size:14px;font-weight:600;background:var(--bg)">
+      <span>Tổng giá thành / sp</span><span style="color:var(--info)">${fmt(c.base)}</span>
+    </div>
+  </div>`:'<div style="color:var(--text2);padding:12px 0">Chưa có dữ liệu giá thành.</div>'}
+  ${orders.length?`
+  <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+    <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Đơn hàng sản xuất (${orders.length})</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${orders.map(o=>{const STATUS={draft:'b-gray',confirmed:'b-blue',inprogress:'b-amber',done:'b-green',cancelled:'b-red'};return`<span class="badge ${STATUS[o.status]||'b-gray'}">${o.orderCode||'—'}</span>`;}).join('')}
+    </div>
+  </div>`:''}
+  <div class="m-foot">
+    <button class="btn btn-sec" onclick="closeM()">Đóng</button>
+    <button class="btn btn-primary" style="background:var(--success)" onclick="closeM();openNhapTP('${pid}')"><i class="ti ti-arrow-down-circle"></i>Nhập kho TP</button>
+  </div>`,true);
+}
+
+// ── MODAL CÀI ĐẶT TỒN THÀNH PHẨM ──
+function openCapNhatTP(pid){
+  const p=db.products.find(x=>x.id===pid); if(!p) return;
+  openM(`
+  <div class="m-hdr">
+    <div class="m-title"><i class="ti ti-settings-2" style="color:#1d4ed8"></i> Cài đặt tồn kho — ${p.code}</div>
+    <button class="btn btn-ghost" onclick="closeM()"><i class="ti ti-x"></i></button>
+  </div>
+  <div style="background:var(--bg);border-radius:8px;padding:11px;margin-bottom:14px;font-size:13px"><strong>${p.name}</strong></div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Tồn kho hiện tại (sp)</label><input type="number" class="fi" id="ctp-ton" value="${getTPStock(pid)}" min="0"></div>
+    <div class="fg"><label class="fl">Tồn kho tối thiểu (sp)</label><input type="number" class="fi" id="ctp-min" value="${getTPMin(pid)}" min="0"></div>
+  </div>
+  <div class="fg"><label class="fl">Vị trí trong kho</label><input class="fi" id="ctp-vitri" value="${getTPViTri(pid)}" placeholder="VD: Kệ B, Tầng 1..."></div>
+  <div class="m-foot">
+    <button class="btn btn-sec" onclick="closeM()">Hủy</button>
+    <button class="btn btn-primary" onclick="saveCapNhatTP('${pid}')"><i class="ti ti-check"></i>Lưu</button>
+  </div>`);
+}
+function saveCapNhatTP(pid){
+  const ton=parseFloat(document.getElementById('ctp-ton').value)||0;
+  const min=parseFloat(document.getElementById('ctp-min').value)||0;
+  const viTri=document.getElementById('ctp-vitri').value.trim();
+  if(!db.khoStock['tp_'+pid]) db.khoStock['tp_'+pid]={tonKho:0,tonMin:0,viTri:''};
+  db.khoStock['tp_'+pid]={tonKho:ton,tonMin:min,viTri};
+  saveDB(); closeM(); render();
+}
+
+// ── MODAL NHẬP THÀNH PHẨM ──
+function openNhapTP(pid){
+  const prods=db.products||[];
+  const opts=prods.map(p=>`<option value="${p.id}"${pid===p.id?' selected':''}>${p.code} — ${p.name}</option>`).join('');
+  const orders=(db.orders||[]).filter(o=>o.status==='inprogress'||o.status==='confirmed'||o.status==='done');
+  const orderOpts=orders.map(o=>{
+    const pr=db.products.find(x=>x.id===o.productId);
+    return`<option value="${o.id}|${o.orderCode||''}">${o.orderCode||'—'} — ${pr?pr.name:'?'}</option>`;
+  }).join('');
+  // Tự điền SL nếu chọn từ đơn hàng
+  openM(`
+  <div class="m-hdr">
+    <div class="m-title" style="color:var(--success)"><i class="ti ti-arrow-down-circle"></i> Nhập thành phẩm vào kho</div>
+    <button class="btn btn-ghost" onclick="closeM()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="alert alert-info" style="margin-bottom:12px"><i class="ti ti-info-circle"></i>Nhập thành phẩm sau khi sản xuất hoàn thành, hoặc nhập từ nguồn khác.</div>
+  <div class="fg">
+    <label class="fl">Sản phẩm *</label>
+    <select class="fi" id="ntp-prod" onchange="onChonSPNhap(this.value)">${opts}</select>
+  </div>
+  <div id="ntp-tonhien" style="margin-bottom:10px;font-size:13px;color:var(--text2)"></div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Số lượng nhập (sp) *</label><input type="number" class="fi" id="ntp-qty" min="0" placeholder="0" autofocus></div>
+    <div class="fg"><label class="fl">Ngày nhập</label><input class="fi" id="ntp-ngay" value="${today()}"></div>
+  </div>
+  <div class="fg">
+    <label class="fl">Liên kết đơn hàng sản xuất</label>
+    <select class="fi" id="ntp-order" onchange="onChonOrderNhapTP(this.value)">
+      <option value="">— Không liên kết —</option>
+      ${orderOpts}
+    </select>
+  </div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Đơn giá nhập (₫)</label><input type="number" class="fi" id="ntp-gia" min="0" placeholder="Giá thành SX..."></div>
+    <div class="fg"><label class="fl">Ghi chú</label><input class="fi" id="ntp-note" placeholder="Ghi chú..."></div>
+  </div>
+  <div class="m-foot">
+    <button class="btn btn-sec" onclick="closeM()">Hủy</button>
+    <button class="btn btn-primary" style="background:var(--success)" onclick="luuNhapTP()"><i class="ti ti-check"></i>Nhập kho thành phẩm</button>
+  </div>`,true);
+  // Hiển thị tồn hiện tại
+  if(pid) setTimeout(()=>onChonSPNhap(pid),50);
+}
+
+function onChonSPNhap(pid){
+  const el=document.getElementById('ntp-tonhien'); if(!el) return;
+  const p=db.products.find(x=>x.id===pid);
+  if(!p){el.innerHTML='';return;}
+  const c=calcGT(p);
+  el.innerHTML=`<div style="background:var(--bg);border-radius:8px;padding:10px 12px;display:flex;gap:16px;align-items:center">
+    <span>Tồn hiện tại: <strong style="color:${getTPStock(pid)>0?'var(--success)':'var(--danger)'}">${fmtN(getTPStock(pid))} sp</strong></span>
+    ${c?`<span style="color:var(--text2)">Giá thành: <strong>${fmt(c.base)}/sp</strong></span>`:''}
+  </div>`;
+  // Tự điền giá thành
+  const giaEl=document.getElementById('ntp-gia');
+  if(giaEl&&c) giaEl.value=Math.round(c.base);
+}
+
+function onChonOrderNhapTP(val){
+  if(!val) return;
+  const [orderId]=val.split('|');
+  const o=db.orders.find(x=>x.id===orderId); if(!o) return;
+  const qty=(o.colors||[]).reduce((s,c)=>s+(c.qty||0),0);
+  const qtyEl=document.getElementById('ntp-qty');
+  if(qtyEl&&qty>0) qtyEl.value=qty;
+}
+
+function luuNhapTP(){
+  const pid=document.getElementById('ntp-prod')?.value;
+  const qty=parseFloat(document.getElementById('ntp-qty')?.value)||0;
+  if(!pid){alert('Vui lòng chọn sản phẩm.');return;}
+  if(qty<=0){alert('Số lượng phải > 0.');return;}
+  const p=db.products.find(x=>x.id===pid); if(!p) return;
+  const ngay=document.getElementById('ntp-ngay')?.value||today();
+  const orderVal=document.getElementById('ntp-order')?.value||'';
+  const [orderId,orderCode]=(orderVal+'|').split('|');
+  const gia=parseFloat(document.getElementById('ntp-gia')?.value)||0;
+  const note=document.getElementById('ntp-note')?.value||'';
+  if(!db.khoStock['tp_'+pid]) db.khoStock['tp_'+pid]={tonKho:0,tonMin:0,viTri:''};
+  db.khoStock['tp_'+pid].tonKho=(db.khoStock['tp_'+pid].tonKho||0)+qty;
+  db.khoPhieu.push({
+    id:'NK-TP-'+Date.now().toString().slice(-6),type:'nhap',isTP:true,
+    matId:'tp_'+pid,matCode:p.code,matName:p.name,unit:'sp',
+    qty,price:gia,orderId:orderId||'',orderCode:orderCode||'',note,date:ngay
+  });
+  saveDB(); closeM(); render();
+  // Gợi ý cập nhật trạng thái đơn hàng
+  if(orderId) setTimeout(()=>alert(`✅ Đã nhập ${fmtN(qty)} sp vào kho!\n\nĐừng quên cập nhật trạng thái đơn hàng "${orderCode}" thành "Hoàn thành" trong GiáThành Pro.`),100);
+}
+
+// ── NHẬP NHANH THEO ĐƠN HÀNG ──
+function openNhapTPTheoOrder(orderId){
+  const o=db.orders.find(x=>x.id===orderId); if(!o) return;
+  const p=db.products.find(x=>x.id===o.productId);
+  const totalQty=(o.colors||[]).reduce((s,c)=>s+(c.qty||0),0);
+  const c=p?calcGT(p):null;
+  openM(`
+  <div class="m-hdr">
+    <div class="m-title" style="color:var(--success)"><i class="ti ti-arrow-down-circle"></i> Nhập kho thành phẩm — ${o.orderCode||'—'}</div>
+    <button class="btn btn-ghost" onclick="closeM()"><i class="ti ti-x"></i></button>
+  </div>
+  <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+      <span><strong>${p?p.name:'Không rõ'}</strong> <span class="badge" style="background:#eff6ff;color:#1d4ed8">${p?p.code:''}</span></span>
+      <span>Tồn TP hiện tại: <strong>${p?fmtN(getTPStock(p.id))+' sp':'—'}</strong></span>
+    </div>
+    <div style="display:flex;gap:16px;color:var(--text2)">
+      <span>SL kế hoạch: <strong>${fmtN(totalQty)} sp</strong></span>
+      ${c?`<span>Giá thành: <strong>${fmt(c.base)}/sp</strong></span>`:''}
+    </div>
+  </div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Số lượng nhập thực tế (sp)</label><input type="number" class="fi" id="nto-qty" value="${totalQty}" min="0"></div>
+    <div class="fg"><label class="fl">Ngày nhập</label><input class="fi" id="nto-ngay" value="${today()}"></div>
+  </div>
+  <div class="fg"><label class="fl">Ghi chú</label><input class="fi" id="nto-note" placeholder="Ghi chú..."></div>
+  <div class="m-foot">
+    <button class="btn btn-sec" onclick="closeM()">Hủy</button>
+    <button class="btn btn-primary" style="background:var(--success)" onclick="luuNhapTPTheoOrder('${orderId}')"><i class="ti ti-check"></i>Nhập kho</button>
+  </div>`);
+}
+
+function luuNhapTPTheoOrder(orderId){
+  const o=db.orders.find(x=>x.id===orderId); if(!o) return;
+  const p=db.products.find(x=>x.id===o.productId); if(!p) return;
+  const qty=parseFloat(document.getElementById('nto-qty')?.value)||0;
+  if(qty<=0){alert('Số lượng phải > 0.');return;}
+  const ngay=document.getElementById('nto-ngay')?.value||today();
+  const note=document.getElementById('nto-note')?.value||'';
+  const c=calcGT(p);
+  if(!db.khoStock['tp_'+p.id]) db.khoStock['tp_'+p.id]={tonKho:0,tonMin:0,viTri:''};
+  db.khoStock['tp_'+p.id].tonKho=(db.khoStock['tp_'+p.id].tonKho||0)+qty;
+  db.khoPhieu.push({
+    id:'NK-TP-'+Date.now().toString().slice(-6),type:'nhap',isTP:true,
+    matId:'tp_'+p.id,matCode:p.code,matName:p.name,unit:'sp',
+    qty,price:c?Math.round(c.base):0,orderId:o.id,orderCode:o.orderCode||'',note,date:ngay
+  });
+  saveDB(); closeM(); render();
+  setTimeout(()=>alert(`✅ Đã nhập ${fmtN(qty)} sp "${p.name}" vào kho thành phẩm!`),100);
+}
+
+// ── MODAL XUẤT THÀNH PHẨM (Giao cho khách) ──
+function openXuatTP(pid){
+  const prods=db.products||[];
+  const p=prods.find(x=>x.id===pid);
+  const opts=prods.map(pr=>`<option value="${pr.id}"${pid===pr.id?' selected':''}>${pr.code} — ${pr.name}</option>`).join('');
+  const c=p?calcGT(p):null;
+  openM(`
+  <div class="m-hdr">
+    <div class="m-title" style="color:#7e22ce"><i class="ti ti-arrow-up-circle"></i> Xuất thành phẩm — Giao hàng</div>
+    <button class="btn btn-ghost" onclick="closeM()"><i class="ti ti-x"></i></button>
+  </div>
+  ${p?`<div style="background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;display:flex;justify-content:space-between">
+    <span><strong>${p.code} — ${p.name}</strong></span>
+    <span>Tồn kho: <strong style="color:${getTPStock(pid)>0?'var(--success)':'var(--danger)'}">${fmtN(getTPStock(pid))} sp</strong></span>
+  </div>`:''}
+  <div class="fg">
+    <label class="fl">Sản phẩm *</label>
+    <select class="fi" id="xtp-prod">${opts}</select>
+  </div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Số lượng xuất (sp) *</label><input type="number" class="fi" id="xtp-qty" min="0" placeholder="0" autofocus></div>
+    <div class="fg"><label class="fl">Giá bán thực tế / sp (₫)</label><input type="number" class="fi" id="xtp-gia" min="0" value="${c&&c.actual?Math.round(c.actual):c?Math.round(c.sale):''}" placeholder="${c?fmt(c.sale):''}"></div>
+  </div>
+  <div class="fg"><label class="fl">Khách hàng / Đơn vị nhận</label><input class="fi" id="xtp-kh" placeholder="Tên khách hàng hoặc đại lý..."></div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Ngày giao</label><input class="fi" id="xtp-ngay" value="${today()}"></div>
+    <div class="fg"><label class="fl">Ghi chú</label><input class="fi" id="xtp-note" placeholder="Ghi chú giao hàng..."></div>
+  </div>
+  <div class="m-foot">
+    <button class="btn btn-sec" onclick="closeM()">Hủy</button>
+    <button class="btn btn-primary" style="background:#7e22ce" onclick="luuXuatTP()"><i class="ti ti-check"></i>Xuất giao hàng</button>
+  </div>`);
+}
+
+function luuXuatTP(){
+  const pid=document.getElementById('xtp-prod')?.value;
+  const qty=parseFloat(document.getElementById('xtp-qty')?.value)||0;
+  if(!pid){alert('Vui lòng chọn sản phẩm.');return;}
+  if(qty<=0){alert('Số lượng phải > 0.');return;}
+  const p=db.products.find(x=>x.id===pid); if(!p) return;
+  const ton=getTPStock(pid);
+  if(qty>ton&&!confirm(`Tồn kho chỉ còn ${fmtN(ton)} sp, xuất ${fmtN(qty)} sp sẽ âm kho. Tiếp tục?`)) return;
+  const gia=parseFloat(document.getElementById('xtp-gia')?.value)||0;
+  const kh=document.getElementById('xtp-kh')?.value||'';
+  const ngay=document.getElementById('xtp-ngay')?.value||today();
+  const note=document.getElementById('xtp-note')?.value||'';
+  if(!db.khoStock['tp_'+pid]) db.khoStock['tp_'+pid]={tonKho:0,tonMin:0,viTri:''};
+  db.khoStock['tp_'+pid].tonKho=Math.max(0,(db.khoStock['tp_'+pid].tonKho||0)-qty);
+  db.khoPhieu.push({
+    id:'XK-TP-'+Date.now().toString().slice(-6),type:'xuat',isTP:true,
+    matId:'tp_'+pid,matCode:p.code,matName:p.name,unit:'sp',
+    qty,price:gia,khachHang:kh,note,date:ngay
+  });
+  saveDB(); closeM(); render();
+}
+
+// ── XUẤT EXCEL THÀNH PHẨM ──
+async function exportTPExcel(){
+  if(typeof ExcelJS==='undefined'){alert('Đang tải ExcelJS...');return;}
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('Thành phẩm');
+  ws.columns=[
+    {header:'Mã hàng',key:'code',width:12},{header:'Tên sản phẩm',key:'name',width:30},
+    {header:'Giá thành/sp (₫)',key:'gt',width:16},{header:'Giá bán ĐX/sp (₫)',key:'gbdx',width:16},
+    {header:'Giá bán TT/sp (₫)',key:'gbtt',width:16},{header:'LN/sp (₫)',key:'ln',width:14},
+    {header:'Tồn kho (sp)',key:'ton',width:12},{header:'Tồn min (sp)',key:'min',width:12},
+    {header:'Vị trí',key:'vitri',width:16},{header:'Trạng thái',key:'tt',width:12},
+  ];
+  ws.getRow(1).font={bold:true};
+  (db.products||[]).forEach(p=>{
+    const c=calcGT(p);
+    ws.addRow({code:p.code,name:p.name,gt:c?Math.round(c.base):0,gbdx:c?Math.round(c.sale):0,gbtt:c&&c.actual?c.actual:0,ln:c&&c.actProfit?Math.round(c.actProfit):0,ton:getTPStock(p.id),min:getTPMin(p.id),vitri:getTPViTri(p.id),tt:trangThaiTP(p.id).label});
+  });
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`ThanhPham_${today().replace(/\//g,'-')}.xlsx`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+
+const NHOM_CFG = {
+  thanh_pham:  { label:'Thành phẩm',        icon:'ti-shirt',        clsTag:'nhom-tp',   color:'#1d4ed8', bg:'#eff6ff', prefix:'TP-' },
+  pk_san_xuat: { label:'Phụ kiện sản xuất',  icon:'ti-tools',        clsTag:'nhom-pksx', color:'#15803d', bg:'#f0fdf4', prefix:'SX-' },
+  pk_ban_hang: { label:'Phụ kiện bán hàng',  icon:'ti-shopping-bag', clsTag:'nhom-pkbh', color:'#7e22ce', bg:'#fdf4ff', prefix:'BH-' },
+};
+
+// helper tồn kho cho khoHang
+function getHangStock(id){ return (db.khoStock['h_'+id]||{}).tonKho||0; }
+function getHangMin(id){   return (db.khoStock['h_'+id]||{}).tonMin||0; }
+function getHangViTri(id){ return (db.khoStock['h_'+id]||{}).viTri||''; }
+function trangThaiHang(id){
+  const ton=getHangStock(id), min=getHangMin(id);
+  if(ton===0)         return{label:'Hết hàng',cls:'b-red',color:'#dc2626'};
+  if(ton<=min)        return{label:'Thiếu',   cls:'b-red',color:'#dc2626'};
+  if(ton<=min*1.3)    return{label:'Sắp hết', cls:'b-amber',color:'#d97706'};
+  return               {label:'Đủ hàng',  cls:'b-green',color:'#16a34a'};
+}
+
+// Auto mã theo nhóm
+function genMaHang(nhom){
+  const cfg = NHOM_CFG[nhom];
+  const prefix = cfg.prefix;
+  let max = 0;
+  (db.khoHang||[]).forEach(h=>{
+    if((h.ma||'').startsWith(prefix)){
+      const n=parseInt((h.ma||'').slice(prefix.length))||0;
+      if(n>max) max=n;
+    }
+  });
+  return prefix+String(max+1).padStart(3,'0');
+}
+
+// ════════════════════════════════════════════
+// PHỤ KIỆN SẢN XUẤT — liên kết db.materials (NPL) GiáThành Pro
+// ════════════════════════════════════════════
+let _pkFilter = 'all';
+let _pkSearch = '';
+let _pkTab    = 'hang'; // 'hang' | 'nhuCau'
+
+function getNPL(){ return (db.materials||[]).filter(m=>!(m.code||'').toUpperCase().startsWith('S')); }
+
+function pPKSanXuat(){
+  const npls   = getNPL();
+  const orders = (db.orders||[]).filter(o=>o.status==='inprogress'||o.status==='confirmed');
+
+  // Thống kê
+  const tongTon   = npls.reduce((s,m)=>s+getStock(m.id),0);
+  const duHang    = npls.filter(m=>trangThaiTon(m.id).label==='Đủ hàng').length;
+  const thieuHang = npls.filter(m=>{const s=trangThaiTon(m.id);return s.label==='Thiếu hàng'||s.label==='Hết hàng';}).length;
+  const sapHet    = npls.filter(m=>trangThaiTon(m.id).label==='Sắp hết').length;
+
+  // Lọc danh sách
+  let list = npls;
+  if(_pkFilter==='thieu') list=npls.filter(m=>{const s=trangThaiTon(m.id);return s.label==='Hết hàng'||s.label==='Thiếu hàng';});
+  else if(_pkFilter==='saphet') list=npls.filter(m=>trangThaiTon(m.id).label==='Sắp hết');
+  else if(_pkFilter==='du') list=npls.filter(m=>trangThaiTon(m.id).label==='Đủ hàng');
+  if(_pkSearch.trim()){const q=_pkSearch.toLowerCase();list=list.filter(m=>(m.code||'').toLowerCase().includes(q)||(m.name||'').toLowerCase().includes(q)||(m.supplier||'').toLowerCase().includes(q));}
+
+  // Tính nhu cầu sản xuất từ BOM × số lượng đơn đang chạy
+  const nhuCauMap = {};
+  orders.forEach(o=>{
+    const p=db.products.find(x=>x.id===o.productId); if(!p) return;
+    const totalQty=(o.colors||[]).reduce((s,c)=>s+(c.qty||0),0);
+    (p.bom||[]).forEach(b=>{
+      const mat=npls.find(m=>m.code===b.matCode); if(!mat) return;
+      if(!nhuCauMap[b.matCode]) nhuCauMap[b.matCode]={matId:mat.id,matCode:b.matCode,matName:b.matName||mat.name,unit:b.unit||mat.unit,canTotal:0,orders:[]};
+      const can=(b.dm||0)*totalQty*(1+(b.hh||0)/100);
+      nhuCauMap[b.matCode].canTotal+=can;
+      nhuCauMap[b.matCode].orders.push({orderCode:o.orderCode,can:can.toFixed(2)});
+    });
+  });
+  const nhuCauList=Object.values(nhuCauMap).map(r=>{
+    const ton=getStock(r.matId);
+    return Object.assign({},r,{ton,thieu:Math.max(0,r.canTotal-ton),ok:ton>=r.canTotal});
+  }).sort((a,b)=>a.ok-b.ok);
+
+  const chips=[{k:'all',l:'Tất cả ('+npls.length+')'},{k:'thieu',l:'Thiếu/Hết ('+thieuHang+')'},{k:'saphet',l:'Sắp hết ('+sapHet+')'},{k:'du',l:'Đủ hàng ('+duHang+')'}];
+  const tabHang=_pkTab==='hang';
+  const thieuNC=nhuCauList.filter(r=>!r.ok).length;
+
+  // ── Build tab tồn kho ──
+  let hangHTML='';
+  if(npls.length===0){
+    hangHTML='<div class="empty"><i class="ti ti-database-off"></i><p>GiáThành Pro chưa có NPL nào.<br>Thêm nguyên phụ liệu trong GiáThành Pro trước.</p></div>';
+  } else {
+    let rows='';
+    if(list.length===0){
+      rows='<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text2)">Không có kết quả phù hợp.</td></tr>';
+    } else {
+      list.forEach(m=>{
+        const s=trangThaiTon(m.id);
+        const ton=getStock(m.id), min=getMin(m.id);
+        const pct=min>0?Math.min(100,(ton/min)*100):(ton>0?100:0);
+        const barColor=s.label==='Đủ hàng'?'#16a34a':s.label==='Sắp hết'?'#d97706':'#dc2626';
+        const inBom=nhuCauMap[m.code];
+        const bomNote=inBom?'<div style="margin-top:3px;font-size:11px;color:var(--warn)"><i class="ti ti-tool" style="font-size:11px;vertical-align:-1px"></i> Đang dùng trong '+inBom.orders.length+' đơn SX</div>':'';
+        const rowCls=s.label==='Thiếu hàng'||s.label==='Hết hàng'?'mat-row-low':s.label==='Sắp hết'?'mat-row-warn':'';
+        rows+=`<tr class="${rowCls}">
+          <td><span class="badge b-green">${m.code||'—'}</span></td>
+          <td><span style="font-weight:500">${m.name}</span>${bomNote}</td>
+          <td style="color:var(--text2)">${m.unit||'—'}</td>
+          <td class="num">${m.price?fmt(m.price):'—'}</td>
+          <td style="font-size:12px;color:var(--text2);max-width:120px">${m.supplier||'—'}</td>
+          <td class="num" style="font-weight:700;font-size:15px;color:${barColor}">${fmtN(ton)}</td>
+          <td class="num" style="color:var(--text2)">${fmtN(min)}</td>
+          <td style="font-size:12px;color:var(--text2)">${getViTri(m.id)||'—'}</td>
+          <td><span class="badge ${s.cls}">${s.label}</span><div class="prog-wrap" style="width:60px;margin-top:4px"><div class="prog-bar" style="width:${pct}%;background:${barColor}"></div></div></td>
+          <td><div style="display:flex;gap:4px">
+            <button class="btn btn-ghost btn-sm" title="Nhập kho" onclick="openNhapPKSX('${m.id}')"><i class="ti ti-arrow-down-circle" style="color:#15803d"></i></button>
+            <button class="btn btn-ghost btn-sm" title="Cài đặt tồn min / vị trí" onclick="openCapNhatTon('${m.id}')"><i class="ti ti-settings-2"></i></button>
+          </div></td>
+        </tr>`;
+      });
+    }
+    hangHTML='<div class="tbl-wrap"><table class="dtbl"><thead><tr><th>Mã NPL</th><th>Tên nguyên phụ liệu</th><th>ĐVT</th><th class="num">Giá nhập</th><th>NCC</th><th class="num">Tồn kho</th><th class="num">Tồn min</th><th>Vị trí</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }
+
+  // ── Build tab nhu cầu SX ──
+  let nhuCauHTML='';
+  if(nhuCauList.length===0){
+    nhuCauHTML='<div class="empty" style="padding:40px"><i class="ti ti-checklist"></i><p>Không có đơn hàng nào đang sản xuất cần NPL.<br>Kiểm tra lại BOM trong GiáThành Pro.</p></div>';
+  } else {
+    let ncRows='';
+    nhuCauList.forEach(r=>{
+      const orderBadges=r.orders.map(o=>'<span class="badge b-amber" style="margin-right:3px;margin-bottom:2px">'+o.orderCode+'</span>').join('');
+      const thieu_str=r.thieu.toFixed(2);
+      const can_str=r.canTotal.toFixed(2);
+      const nhapBtn=!r.ok?'<button class="btn btn-sec btn-sm" onclick="openNhapPKSX(\''+r.matId+'\')"><i class="ti ti-arrow-down-circle" style="color:#15803d"></i>Nhập</button>':'';
+      ncRows+=`<tr class="${!r.ok?'mat-row-low':''}">
+        <td><span class="badge b-green">${r.matCode||'—'}</span></td>
+        <td style="font-weight:500">${r.matName}</td>
+        <td style="color:var(--text2)">${r.unit||''}</td>
+        <td class="num" style="font-weight:600">${can_str}</td>
+        <td class="num" style="color:${r.ok?'var(--success)':'var(--danger)'};font-weight:700">${fmtN(r.ton)}</td>
+        <td class="num" style="color:${r.ok?'var(--text3)':'var(--danger)'};font-weight:${r.ok?'400':'700'}">
+          ${r.ok?'—':'<span style="background:var(--danger-bg);padding:2px 8px;border-radius:6px">'+thieu_str+'</span>'}
+        </td>
+        <td style="font-size:12px">${orderBadges}</td>
+        <td>${r.ok?'<span class="badge b-green">Đủ hàng</span>':'<span class="badge b-red">Thiếu '+thieu_str+' '+r.unit+'</span>'}</td>
+        <td>${nhapBtn}</td>
+      </tr>`;
+    });
+    nhuCauHTML='<div class="tbl-wrap"><table class="dtbl"><thead><tr><th>Mã NPL</th><th>Tên nguyên phụ liệu</th><th>ĐVT</th><th class="num">Tổng cần</th><th class="num">Tồn kho</th><th class="num">Cần nhập thêm</th><th>Đơn hàng liên kết</th><th>Trạng thái</th><th></th></tr></thead><tbody>'+ncRows+'</tbody></table></div>';
+  }
+
+  // ── Build lịch sử ──
+  const nplIds=new Set(npls.map(m=>m.id));
+  const recent=(db.khoPhieu||[]).filter(p=>nplIds.has(p.matId)&&!p.isTP).reverse().slice(0,8);
+  let lichSuHTML='<div style="padding:14px 16px;font-size:13px;color:var(--text2)">Chưa có giao dịch nào.</div>';
+  if(recent.length){
+    let lsRows='';
+    recent.forEach(p=>{
+      const orderBadge=p.orderCode?'<span class="badge b-blue">'+p.orderCode+'</span>':'—';
+      lsRows+=`<tr>
+        <td style="font-size:11px;color:var(--text2)">${p.id}</td>
+        <td>${p.type==='nhap'?'<span class="badge b-teal"><i class="ti ti-arrow-down" style="font-size:11px"></i> Nhập</span>':'<span class="badge b-amber"><i class="ti ti-arrow-up" style="font-size:11px"></i> Xuất SX</span>'}</td>
+        <td><span style="font-weight:500">${p.matName||'—'}</span><br><span style="font-size:11px;color:var(--text3)">${p.matCode||''}</span></td>
+        <td class="num" style="color:${p.type==='nhap'?'var(--success)':'var(--warn)'};font-weight:700">${p.type==='nhap'?'+':'−'}${fmtN(p.qty)} ${p.unit||''}</td>
+        <td class="num" style="color:var(--text2)">${p.price?fmt(p.price):'—'}</td>
+        <td>${orderBadge}</td>
+        <td style="font-size:12px;color:var(--text2)">${p.date||'—'}</td>
+      </tr>`;
+    });
+    lichSuHTML='<div class="tbl-wrap"><table class="dtbl"><thead><tr><th>Số phiếu</th><th>Loại</th><th>Nguyên phụ liệu</th><th class="num">Số lượng</th><th class="num">Đơn giá</th><th>Đơn hàng SX</th><th>Ngày</th></tr></thead><tbody>'+lsRows+'</tbody></table></div>';
+  }
+
+  // ── Render chips lọc ──
+  const chipHTML=chips.map(c=>'<span class="chip'+(_pkFilter===c.k?' active':'')+'" onclick="_pkFilter=\''+c.k+'\';render()">'+c.l+'</span>').join('');
+
+  return `
+  <div class="page-hdr">
+    <div>
+      <div class="page-title" style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:9px;background:#f0fdf4;display:flex;align-items:center;justify-content:center">
+          <i class="ti ti-tools" style="color:#15803d;font-size:18px"></i>
+        </div>
+        Phụ kiện sản xuất
+        <span style="font-size:13px;font-weight:400;color:var(--text2)">— Nguyên phụ liệu GiáThành Pro</span>
+      </div>
+      <div class="page-sub">${npls.length} loại NPL · ${orders.length} đơn đang sản xuất · Tổng tồn: ${fmtN(tongTon)}</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sec" onclick="syncFromGT()"><i class="ti ti-refresh"></i>Đồng bộ GiáThành Pro</button>
+      <button class="btn btn-sec" onclick="exportPKSXExcel()"><i class="ti ti-table-export"></i>Excel</button>
+      <button class="btn btn-primary" style="background:#15803d" onclick="openNhapPKSX(null)"><i class="ti ti-arrow-down-circle"></i>Nhập kho</button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-lbl">Tổng loại NPL</div><div class="stat-val" style="color:#15803d">${npls.length}</div><div class="stat-desc">từ GiáThành Pro</div></div>
+    <div class="stat-card" style="border-color:#dc262633;background:var(--danger-bg)">
+      <div class="stat-lbl" style="color:var(--danger)">Thiếu / Hết hàng</div>
+      <div class="stat-val" style="color:var(--danger)">${thieuHang}</div><div class="stat-desc">cần đặt thêm</div>
+    </div>
+    <div class="stat-card" style="border-color:#d9770633;background:var(--warn-bg)">
+      <div class="stat-lbl" style="color:var(--warn)">Sắp hết</div>
+      <div class="stat-val" style="color:var(--warn)">${sapHet}</div><div class="stat-desc">dưới 130% tồn min</div>
+    </div>
+    <div class="stat-card" style="border-color:#d9770633;background:var(--warn-bg)">
+      <div class="stat-lbl" style="color:var(--warn)">NPL đang dùng trong SX</div>
+      <div class="stat-val" style="color:var(--warn)">${nhuCauList.length}</div><div class="stat-desc">loại đang được sản xuất</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="tab-bar">
+      <div class="tab-item${tabHang?' active':''}" onclick="_pkTab='hang';render()">
+        <i class="ti ti-packages" style="font-size:15px"></i>Tồn kho phụ kiện
+      </div>
+      <div class="tab-item${!tabHang?' active':''}" onclick="_pkTab='nhuCau';render()">
+        <i class="ti ti-checklist" style="font-size:15px"></i>Nhu cầu sản xuất
+        ${thieuNC?'<span style="background:#dc2626;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px">'+thieuNC+'</span>':''}
+      </div>
+    </div>
+    ${tabHang?`<div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" value="${_pkSearch}" placeholder="Tìm mã, tên, nhà cung cấp..."
+        oninput="_pkSearch=this.value;render()"
+        style="padding:6px 11px;border:1px solid var(--border2);border-radius:7px;font-size:13px;font-family:inherit;outline:none;width:240px">
+      ${chipHTML}
+    </div>`:''}
+    ${tabHang?hangHTML:nhuCauHTML}
+  </div>
+
+  <div class="sec" style="margin-top:16px">
+    <div class="sec-hdr"><div class="sec-title"><i class="ti ti-history"></i>Lịch sử nhập/xuất — Phụ kiện sản xuất</div></div>
+    ${lichSuHTML}
+  </div>`;
+}
+
+function pPKSanXuat(){
+  const npls   = getNPL();
+  const orders = (db.orders||[]).filter(o=>o.status==='inprogress'||o.status==='confirmed');
+
+  // Thống kê
+  const tongTon  = npls.reduce((s,m)=>s+getStock(m.id),0);
+  const duHang   = npls.filter(m=>trangThaiTon(m.id).label==='Đủ hàng').length;
+  const thieuHang= npls.filter(m=>{const s=trangThaiTon(m.id);return s.label==='Thiếu hàng'||s.label==='Hết hàng';}).length;
+  const sapHet   = npls.filter(m=>trangThaiTon(m.id).label==='Sắp hết').length;
+
+  // Lọc
+  let list = npls;
+  if(_pkFilter==='thieu') list=npls.filter(m=>{const s=trangThaiTon(m.id);return s.label==='Hết hàng'||s.label==='Thiếu hàng';});
+  else if(_pkFilter==='saphet') list=npls.filter(m=>trangThaiTon(m.id).label==='Sắp hết');
+  else if(_pkFilter==='du') list=npls.filter(m=>trangThaiTon(m.id).label==='Đủ hàng');
+  if(_pkSearch.trim()){ const q=_pkSearch.toLowerCase(); list=list.filter(m=>(m.code||'').toLowerCase().includes(q)||(m.name||'').toLowerCase().includes(q)||(m.supplier||'').toLowerCase().includes(q)); }
+
+  // Tính nhu cầu sản xuất từ đơn hàng đang chạy
+  const nhuCauMap = {}; // matCode -> {matName, unit, canTotal, tonKho, thieu, orders[]}
+  orders.forEach(o=>{
+    const p=db.products.find(x=>x.id===o.productId); if(!p) return;
+    const totalQty=(o.colors||[]).reduce((s,c)=>s+(c.qty||0),0);
+    (p.bom||[]).forEach(b=>{
+      const mat=npls.find(m=>m.code===b.matCode); if(!mat) return;
+      if(!nhuCauMap[b.matCode]) nhuCauMap[b.matCode]={matId:mat.id,matCode:b.matCode,matName:b.matName||mat.name,unit:b.unit||mat.unit,canTotal:0,orders:[]};
+      const can=(b.dm||0)*totalQty*(1+(b.hh||0)/100);
+      nhuCauMap[b.matCode].canTotal+=can;
+      nhuCauMap[b.matCode].orders.push({orderCode:o.orderCode,can:can.toFixed(2)});
+    });
+  });
+  const nhuCauList=Object.values(nhuCauMap).map(r=>{
+    const ton=getStock(r.matId);
+    return{...r,ton,thieu:Math.max(0,r.canTotal-ton),ok:ton>=r.canTotal};
+  }).sort((a,b)=>a.ok-b.ok);
+
+  const tabHang=_pkTab==='hang';
+  const chips=[{k:'all',l:'Tất cả ('+npls.length+')'},{k:'thieu',l:'Thiếu/Hết ('+thieuHang+')'},{k:'saphet',l:'Sắp hết ('+sapHet+')'},{k:'du',l:'Đủ hàng ('+duHang+')'}];
+
+  return`
+  <div class="page-hdr">
+    <div>
+      <div class="page-title" style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:9px;background:#f0fdf4;display:flex;align-items:center;justify-content:center">
+          <i class="ti ti-tools" style="color:#15803d;font-size:18px"></i>
+        </div>
+        Phụ kiện sản xuất
+        <span style="font-size:13px;font-weight:400;color:var(--text2)">— Nguyên phụ liệu GiáThành Pro</span>
+      </div>
+      <div class="page-sub">${npls.length} loại NPL · ${orders.length} đơn đang sản xuất · Tổng tồn: ${fmtN(tongTon)}</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sec" onclick="syncFromGT()"><i class="ti ti-refresh"></i>Đồng bộ GiáThành Pro</button>
+      <button class="btn btn-sec" onclick="exportPKSXExcel()"><i class="ti ti-table-export"></i>Excel</button>
+      <button class="btn btn-primary" style="background:#15803d" onclick="openNhapPKSX(null)"><i class="ti ti-arrow-down-circle"></i>Nhập kho</button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-lbl">Tổng loại NPL</div><div class="stat-val" style="color:#15803d">${npls.length}</div><div class="stat-desc">từ GiáThành Pro</div></div>
+    <div class="stat-card" style="border-color:#dc262633;background:var(--danger-bg)">
+      <div class="stat-lbl" style="color:var(--danger)">Thiếu / Hết hàng</div>
+      <div class="stat-val" style="color:var(--danger)">${thieuHang}</div><div class="stat-desc">cần đặt thêm</div>
+    </div>
+    <div class="stat-card" style="border-color:#d9770633;background:var(--warn-bg)">
+      <div class="stat-lbl" style="color:var(--warn)">Sắp hết</div>
+      <div class="stat-val" style="color:var(--warn)">${sapHet}</div><div class="stat-desc">dưới 130% tồn min</div>
+    </div>
+    <div class="stat-card" style="border-color:#d9770633;background:var(--warn-bg)">
+      <div class="stat-lbl" style="color:var(--warn)">Nhu cầu từ đơn SX</div>
+      <div class="stat-val" style="color:var(--warn)">${nhuCauList.length}</div>
+      <div class="stat-desc">loại NPL đang được dùng</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="tab-bar">
+      <div class="tab-item${tabHang?' active':''}" onclick="_pkTab='hang';render()">
+        <i class="ti ti-packages" style="font-size:15px"></i>Tồn kho phụ kiện
+      </div>
+      <div class="tab-item${!tabHang?' active':''}" onclick="_pkTab='nhuCau';render()">
+        <i class="ti ti-checklist" style="font-size:15px"></i>Nhu cầu sản xuất
+        ${nhuCauList.filter(r=>!r.ok).length?`<span style="background:#dc2626;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px">${nhuCauList.filter(r=>!r.ok).length}</span>`:''}
+      </div>
+    </div>
+
+    ${tabHang?`
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" value="${_pkSearch}" placeholder="Tìm mã, tên, nhà cung cấp..."
+        oninput="_pkSearch=this.value;render()"
+        style="padding:6px 11px;border:1px solid var(--border2);border-radius:7px;font-size:13px;font-family:inherit;outline:none;width:240px">
+      ${chips.map(c=>`<span class="chip${_pkFilter===c.k?' active':''}" onclick="_pkFilter='${c.k}';render()">${c.l}</span>`).join('')}
+    </div>
+    ${npls.length===0
+      ?`<div class="empty"><i class="ti ti-database-off"></i><p>GiáThành Pro chưa có nguyên phụ liệu nào.<br>Thêm NPL trong GiáThành Pro trước.</p></div>`
+      :`<div class="tbl-wrap"><table class="dtbl">
+        <thead><tr>
+          <th>Mã NPL</th><th>Tên nguyên phụ liệu</th><th>ĐVT</th>
+          <th class="num">Giá nhập</th><th>NCC</th>
+          <th class="num">Tồn kho</th><th class="num">Tồn min</th><th>Vị trí</th>
+          <th>Trạng thái</th><th>Thao tác</th>
+        </tr></thead>
+        <tbody>
+        ${list.length===0?`<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text2)">Không có kết quả phù hợp.</td></tr>`
+          :list.map(m=>{
+            const s=trangThaiTon(m.id);
+            const ton=getStock(m.id), min=getMin(m.id);
+            const pct=min>0?Math.min(100,(ton/min)*100):(ton>0?100:0);
+            const barColor=s.label==='Đủ hàng'?'#16a34a':s.label==='Sắp hết'?'#d97706':'#dc2626';
+            // NPL này có được dùng trong BOM của đơn nào không?
+            const inBom=nhuCauMap[m.code];
+            return`<tr class="${s.label==='Thiếu hàng'||s.label==='Hết hàng'?'mat-row-low':s.label==='Sắp hết'?'mat-row-warn':''}">
+              <td><span class="badge b-green">${m.code||'—'}</span></td>
+              <td>
+                <span style="font-weight:500">${m.name}</span>
+                ${inBom?`<div style="margin-top:3px;font-size:11px;color:var(--warn)"><i class="ti ti-tool" style="font-size:11px;vertical-align:-1px"></i> Đang dùng trong ${inBom.orders.length} đơn SX</div>`:''}
+              </td>
+              <td style="color:var(--text2)">${m.unit||'—'}</td>
+              <td class="num">${m.price?fmt(m.price):'—'}</td>
+              <td style="font-size:12px;color:var(--text2);max-width:120px">${m.supplier||'—'}</td>
+              <td class="num" style="font-weight:700;font-size:15px;color:${barColor}">${fmtN(ton)}</td>
+              <td class="num" style="color:var(--text2)">${fmtN(min)}</td>
+              <td style="font-size:12px;color:var(--text2)">${getViTri(m.id)||'—'}</td>
+              <td>
+                <span class="badge ${s.cls}">${s.label}</span>
+                <div class="prog-wrap" style="width:60px;margin-top:4px"><div class="prog-bar" style="width:${pct}%;background:${barColor}"></div></div>
+              </td>
+              <td>
+                <div style="display:flex;gap:4px">
+                  <button class="btn btn-ghost btn-sm" title="Nhập kho" onclick="openNhapPKSX('${m.id}')"><i class="ti ti-arrow-down-circle" style="color:#15803d"></i></button>
+                  <button class="btn btn-ghost btn-sm" title="Cài đặt tồn min / vị trí" onclick="openCapNhatTon('${m.id}')"><i class="ti ti-settings-2"></i></button>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table></div>`}
+    `:/* TAB NHU CẦU SX */`
+    ${nhuCauList.length===0
+      ?`<div class="empty" style="padding:40px"><i class="ti ti-checklist"></i><p>Không có đơn hàng nào đang sản xuất cần NPL.<br>Kiểm tra lại BOM trong GiáThành Pro.</p></div>`
+      :`<div class="tbl-wrap"><table class="dtbl">
+        <thead><tr>
+          <th>Mã NPL</th><th>Tên nguyên phụ liệu</th><th>ĐVT</th>
+          <th class="num">Tổng cần</th><th class="num">Tồn kho</th><th class="num">Cần nhập thêm</th>
+          <th>Đơn hàng liên kết</th><th>Trạng thái</th><th></th>
+        </tr></thead>
+        <tbody>${nhuCauList.map(r=>`<tr class="${!r.ok?'mat-row-low':''}">
+          <td><span class="badge b-green">${r.matCode||'—'}</span></td>
+          <td style="font-weight:500">${r.matName}</td>
+          <td style="color:var(--text2)">${r.unit||''}</td>
+          <td class="num" style="font-weight:600">${r.canTotal.toFixed(2)}</td>
+          <td class="num" style="color:${r.ok?'var(--success)':'var(--danger)'};font-weight:700">${fmtN(r.ton)}</td>
+          <td class="num" style="color:${r.ok?'var(--text3)':'var(--danger)'};font-weight:${r.ok?'400':'700'}">
+            ${r.ok?'—':`<span style="background:var(--danger-bg);padding:2px 8px;border-radius:6px">${r.thieu.toFixed(2)}</span>`}
+          </td>
+          <td style="font-size:12px">
+            ${r.orders.map(o=>`<span class="badge b-amber" style="margin-right:3px;margin-bottom:2px">${o.orderCode}</span>`).join('')}
+          </td>
+          <td>${r.ok?`<span class="badge b-green">Đủ hàng</span>`:`<span class="badge b-red">Thiếu ${r.thieu.toFixed(2)} ${r.unit}</span>`}</td>
+          <td>${!r.ok?`<button class="btn btn-sec btn-sm" onclick="openNhapPKSX('${r.matId}')"><i class="ti ti-arrow-down-circle" style="color:#15803d"></i>Nhập</button>`:''}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`}
+    `}
+  </div>
+
+  <div class="sec" style="margin-top:16px">
+    <div class="sec-hdr"><div class="sec-title"><i class="ti ti-history"></i>Lịch sử nhập/xuất — Phụ kiện sản xuất</div></div>
+    ${(()=>{
+      const nplIds=new Set(npls.map(m=>m.id));
+      const recent=(db.khoPhieu||[]).filter(p=>nplIds.has(p.matId)&&!p.isTP).reverse().slice(0,8);
+      if(!recent.length) return`<div style="padding:14px 16px;font-size:13px;color:var(--text2)">Chưa có giao dịch nào.</div>`;
+      return`<div class="tbl-wrap"><table class="dtbl">
+        <thead><tr><th>Số phiếu</th><th>Loại</th><th>Nguyên phụ liệu</th><th class="num">Số lượng</th><th class="num">Đơn giá</th><th>Đơn hàng SX</th><th>Ngày</th></tr></thead>
+        <tbody>${recent.map(p=>`<tr>
+          <td style="font-size:11px;color:var(--text2)">${p.id}</td>
+          <td>${p.type==='nhap'?`<span class="badge b-teal"><i class="ti ti-arrow-down" style="font-size:11px"></i> Nhập</span>`:`<span class="badge b-amber"><i class="ti ti-arrow-up" style="font-size:11px"></i> Xuất SX</span>`}</td>
+          <td><span style="font-weight:500">${p.matName||'—'}</span><br><span style="font-size:11px;color:var(--text3)">${p.matCode||''}</span></td>
+          <td class="num" style="color:${p.type==='nhap'?'var(--success)':'var(--warn)'};font-weight:700">${p.type==='nhap'?'+':'−'}${fmtN(p.qty)} ${p.unit||''}</td>
+          <td class="num" style="color:var(--text2)">${p.price?fmt(p.price):'—'}</td>
+          <td>${p.orderCode?`<span class="badge b-blue">${p.orderCode}</span>`:'—'}</td>
+          <td style="font-size:12px;color:var(--text2)">${p.date||'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+    })()}
+  </div>`;
+}
+
+// ── MODAL NHẬP KHO NPL (dùng getStock/khoStock trực tiếp) ──
+function openNhapPKSX(matId){
+  const npls=getNPL();
+  const mat=matId?npls.find(m=>m.id===matId):null;
+  const opts=npls.map(m=>`<option value="${m.id}"${matId===m.id?' selected':''}>${m.code} — ${m.name} (${m.unit})</option>`).join('');
+  openM(`
+  <div class="m-hdr">
+    <div class="m-title" style="color:#15803d"><i class="ti ti-arrow-down-circle"></i> Nhập kho — Phụ kiện sản xuất</div>
+    <button class="btn btn-ghost" onclick="closeM()"><i class="ti ti-x"></i></button>
+  </div>
+  ${mat?`<div style="background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;display:flex;justify-content:space-between">
+    <span><span class="badge b-green">${mat.code}</span> <strong>${mat.name}</strong></span>
+    <span>Tồn hiện tại: <strong style="color:${getStock(mat.id)>0?'var(--success)':'var(--danger)'}">${fmtN(getStock(mat.id))} ${mat.unit}</strong></span>
+  </div>`:''}
+  <div class="fg"><label class="fl">Nguyên phụ liệu *</label>
+    <select class="fi" id="pksx-mat" onchange="onChonNPL(this.value)">${opts}</select>
+  </div>
+  <div id="pksx-info"></div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Số lượng nhập *</label><input type="number" class="fi" id="pksx-qty" min="0" step="0.001" placeholder="0" autofocus></div>
+    <div class="fg"><label class="fl">Đơn giá nhập (₫)</label><input type="number" class="fi" id="pksx-price" value="${mat?.price||''}" min="0"></div>
+  </div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Nhà cung cấp</label><input class="fi" id="pksx-ncc" value="${mat?.supplier||''}" placeholder="NCC..."></div>
+    <div class="fg"><label class="fl">Ngày nhập</label><input class="fi" id="pksx-ngay" value="${today()}"></div>
+  </div>
+  <div class="fg"><label class="fl">Ghi chú</label><input class="fi" id="pksx-note" placeholder="Ghi chú phiếu nhập..."></div>
+  <div class="m-foot">
+    <button class="btn btn-sec" onclick="closeM()">Hủy</button>
+    <button class="btn btn-primary" style="background:#15803d" onclick="luuNhapPKSX()"><i class="ti ti-check"></i>Nhập kho</button>
+  </div>`);
+  if(matId) setTimeout(()=>onChonNPL(matId),50);
+}
+
+function onChonNPL(matId){
+  const mat=(db.materials||[]).find(m=>m.id===matId); if(!mat) return;
+  const el=document.getElementById('pksx-info');
+  if(el) el.innerHTML=`<div style="background:var(--bg);border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:13px;display:flex;gap:16px">
+    <span>Tồn: <strong style="color:${getStock(matId)>0?'var(--success)':'var(--danger)'}">${fmtN(getStock(matId))} ${mat.unit}</strong></span>
+    <span>Tồn min: <strong>${fmtN(getMin(matId))}</strong></span>
+    ${mat.supplier?`<span style="color:var(--text2)">NCC: ${mat.supplier}</span>`:''}
+  </div>`;
+  const priceEl=document.getElementById('pksx-price');
+  if(priceEl&&mat.price) priceEl.value=mat.price;
+  const nccEl=document.getElementById('pksx-ncc');
+  if(nccEl&&mat.supplier) nccEl.value=mat.supplier;
+}
+
+function luuNhapPKSX(){
+  const matId=document.getElementById('pksx-mat')?.value;
+  const qty=parseFloat(document.getElementById('pksx-qty')?.value)||0;
+  if(!matId){alert('Chọn nguyên phụ liệu.');return;}
+  if(qty<=0){alert('Số lượng phải > 0.');return;}
+  const mat=(db.materials||[]).find(m=>m.id===matId); if(!mat) return;
+  const price=parseFloat(document.getElementById('pksx-price')?.value)||0;
+  const ncc=document.getElementById('pksx-ncc')?.value.trim()||'';
+  const ngay=document.getElementById('pksx-ngay')?.value||today();
+  const note=document.getElementById('pksx-note')?.value.trim()||'';
+  if(!db.khoStock[matId]) db.khoStock[matId]={tonKho:0,tonMin:0,viTri:''};
+  db.khoStock[matId].tonKho=(db.khoStock[matId].tonKho||0)+qty;
+  db.khoPhieu.push({id:'NK-PK-'+Date.now().toString().slice(-6),type:'nhap',matId,matCode:mat.code,matName:mat.name,unit:mat.unit,qty,price,ncc,note,date:ngay,nhom:'pk_san_xuat'});
+  saveDB(); closeM(); render();
+}
+
+// ── XUẤT EXCEL PKSX ──
+async function exportPKSXExcel(){
+  if(typeof ExcelJS==='undefined'){alert('Đang tải ExcelJS...');return;}
+  const npls=getNPL();
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('Phụ kiện sản xuất');
+  ws.columns=[
+    {header:'Mã NPL',key:'code',width:12},{header:'Tên',key:'name',width:30},
+    {header:'ĐVT',key:'unit',width:8},{header:'Giá nhập (₫)',key:'price',width:14},
+    {header:'NCC',key:'ncc',width:22},{header:'Tồn kho',key:'ton',width:12},
+    {header:'Tồn min',key:'min',width:12},{header:'Vị trí',key:'vitri',width:16},
+    {header:'Trạng thái',key:'tt',width:14},
+  ];
+  ws.getRow(1).font={bold:true};
+  npls.forEach(m=>{
+    ws.addRow({code:m.code,name:m.name,unit:m.unit,price:m.price||0,ncc:m.supplier||'',ton:getStock(m.id),min:getMin(m.id),vitri:getViTri(m.id),tt:trangThaiTon(m.id).label});
+  });
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`PhuKienSX_${today().replace(/\//g,'-')}.xlsx`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+
+function pDanhMuc(){
+  const hang=db.khoHang||[], prods=db.products||[];
+  const npls=getNPL();
+  const tpCoHang=prods.filter(p=>getTPStock(p.id)>0).length;
+  const tpThap=prods.filter(p=>{const s=trangThaiTP(p.id);return s.label==='Tồn thấp'||s.label==='Hết hàng';}).length;
+  const pksxThieu=npls.filter(m=>{const s=trangThaiTon(m.id);return s.label==='Hết hàng'||s.label==='Thiếu hàng';}).length;
+  const pksxTon=npls.reduce((s,m)=>s+getStock(m.id),0);
+  const pkbhList=hang.filter(h=>h.nhom==='pk_ban_hang');
+  const pkbhThieu=pkbhList.filter(h=>{const s=trangThaiHang(h.id);return s.label==='Hết hàng'||s.label==='Thiếu';}).length;
+  const pkbhTon=pkbhList.reduce((s,h)=>s+getHangStock(h.id),0);
+  return`
+  <div class="page-hdr">
+    <div><div class="page-title">Danh mục kho</div><div class="page-sub">${prods.length} thành phẩm · ${npls.length} phụ kiện SX · ${pkbhList.length} phụ kiện BH</div></div>
+    <button class="btn btn-primary" onclick="openMHang(null,'pk_ban_hang')"><i class="ti ti-plus"></i>Thêm phụ kiện BH</button>
+  </div>
+  <div class="dm-grid">
+    <div class="dm-card" onclick="go('thanh_pham')">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="dm-icon" style="background:#eff6ff"><i class="ti ti-shirt" style="color:#1d4ed8"></i></div>
+        <div><div style="font-weight:600;font-size:15px">Thành phẩm</div><div style="font-size:12px;color:var(--text2);margin-top:2px">${prods.length} mã hàng</div>
+          <span style="background:#eff6ff;color:#1d4ed8;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:500;margin-top:3px;display:inline-block"><i class="ti ti-plug-connected" style="font-size:10px;vertical-align:-1px"></i> GiáThành Pro</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:var(--bg);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;font-weight:600">Đang có hàng</div><div style="font-size:18px;font-weight:700;margin-top:2px;color:#1d4ed8">${tpCoHang} mã</div></div>
+        <div style="background:${tpThap>0?'var(--danger-bg)':'var(--bg)'};border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;font-weight:600">Cần bổ sung</div><div style="font-size:18px;font-weight:700;margin-top:2px;color:${tpThap>0?'var(--danger)':'var(--text3)'}">${tpThap}</div></div>
+      </div>
+      <div style="padding-top:8px;border-top:1px solid var(--border);display:flex;gap:6px;justify-content:flex-end">
+        <button class="btn btn-sec btn-sm" onclick="event.stopPropagation();openNhapTP(null)"><i class="ti ti-arrow-down-circle"></i>Nhập TP</button>
+        <button class="btn btn-sec btn-sm" onclick="event.stopPropagation();go('thanh_pham')"><i class="ti ti-arrow-right"></i>Xem</button>
+      </div>
+    </div>
+    <div class="dm-card" onclick="go('pk_san_xuat')">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="dm-icon" style="background:#f0fdf4"><i class="ti ti-tools" style="color:#15803d"></i></div>
+        <div><div style="font-weight:600;font-size:15px">Phụ kiện sản xuất</div><div style="font-size:12px;color:var(--text2);margin-top:2px">${npls.length} loại NPL</div>
+          <span style="background:#f0fdf4;color:#15803d;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:500;margin-top:3px;display:inline-block"><i class="ti ti-plug-connected" style="font-size:10px;vertical-align:-1px"></i> GiáThành Pro</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:var(--bg);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;font-weight:600">Tổng tồn kho</div><div style="font-size:18px;font-weight:700;margin-top:2px;color:#15803d">${fmtN(pksxTon)}</div></div>
+        <div style="background:${pksxThieu>0?'var(--danger-bg)':'var(--bg)'};border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;font-weight:600">Cần bổ sung</div><div style="font-size:18px;font-weight:700;margin-top:2px;color:${pksxThieu>0?'var(--danger)':'var(--text3)'}">${pksxThieu}</div></div>
+      </div>
+      <div style="padding-top:8px;border-top:1px solid var(--border);display:flex;gap:6px;justify-content:flex-end">
+        <button class="btn btn-sec btn-sm" onclick="event.stopPropagation();openNhapPKSX(null)"><i class="ti ti-arrow-down-circle"></i>Nhập</button>
+        <button class="btn btn-sec btn-sm" onclick="event.stopPropagation();go('pk_san_xuat')"><i class="ti ti-arrow-right"></i>Xem</button>
+      </div>
+    </div>
+    <div class="dm-card" onclick="go('pk_ban_hang')">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="dm-icon" style="background:#fdf4ff"><i class="ti ti-shopping-bag" style="color:#7e22ce"></i></div>
+        <div><div style="font-weight:600;font-size:15px">Phụ kiện bán hàng</div><div style="font-size:12px;color:var(--text2);margin-top:2px">${pkbhList.length} mặt hàng</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:var(--bg);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;font-weight:600">Tổng tồn kho</div><div style="font-size:18px;font-weight:700;margin-top:2px;color:#7e22ce">${fmtN(pkbhTon)}</div></div>
+        <div style="background:${pkbhThieu>0?'var(--danger-bg)':'var(--bg)'};border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;font-weight:600">Cần bổ sung</div><div style="font-size:18px;font-weight:700;margin-top:2px;color:${pkbhThieu>0?'var(--danger)':'var(--text3)'}">${pkbhThieu}</div></div>
+      </div>
+      <div style="padding-top:8px;border-top:1px solid var(--border);display:flex;gap:6px;justify-content:flex-end">
+        <button class="btn btn-sec btn-sm" onclick="event.stopPropagation();openMHang(null,'pk_ban_hang')"><i class="ti ti-plus"></i>Thêm</button>
+        <button class="btn btn-sec btn-sm" onclick="event.stopPropagation();go('pk_ban_hang')"><i class="ti ti-arrow-right"></i>Xem</button>
+      </div>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-hdr"><div class="sec-title"><i class="ti ti-alert-triangle" style="color:var(--warn)"></i>Cảnh báo tồn kho thấp — Tất cả nhóm</div></div>
+    ${(()=>{
+      const tpLow=prods.filter(p=>{const s=trangThaiTP(p.id);return s.label!=='Có hàng'&&getTPMin(p.id)>0;});
+      const pksxLow=npls.filter(m=>{const s=trangThaiTon(m.id);return s.label!=='Đủ hàng'&&getMin(m.id)>0;});
+      const pkbhLow=pkbhList.filter(h=>{const s=trangThaiHang(h.id);return s.label!=='Đủ hàng';});
+      if(!tpLow.length&&!pksxLow.length&&!pkbhLow.length) return`<div style="padding:14px 16px;font-size:13px;color:var(--success)"><i class="ti ti-circle-check" style="vertical-align:-2px"></i> Tất cả mặt hàng đều đủ tồn kho.</div>`;
+      const rows=[
+        ...tpLow.map(p=>{const s=trangThaiTP(p.id);return{ma:p.code,ten:p.name,nhom:'Thành phẩm',cls:'nhom-tp',ton:getTPStock(p.id),min:getTPMin(p.id),dvt:'sp',s,isTP:true,id:p.id};}),
+        ...pksxLow.map(m=>{const s=trangThaiTon(m.id);return{ma:m.code,ten:m.name,nhom:'PK sản xuất',cls:'nhom-pksx',ton:getStock(m.id),min:getMin(m.id),dvt:m.unit||'',s,isPKSX:true,id:m.id};}),
+        ...pkbhLow.map(h=>{const s=trangThaiHang(h.id);return{ma:h.ma,ten:h.ten,nhom:'PK bán hàng',cls:'nhom-pkbh',ton:getHangStock(h.id),min:getHangMin(h.id),dvt:h.dvt||'',s,id:h.id};})
+      ];
+      return`<div class="tbl-wrap"><table class="dtbl">
+        <thead><tr><th>Mã</th><th>Tên</th><th>Nhóm</th><th class="num">Tồn kho</th><th class="num">Tồn min</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td style="font-weight:500">${r.ma||'—'}</td><td style="font-weight:500">${r.ten}</td>
+          <td><span class="nhom-tag ${r.cls}">${r.nhom}</span></td>
+          <td class="num" style="color:${r.s.color};font-weight:700">${fmtN(r.ton)} ${r.dvt}</td>
+          <td class="num">${fmtN(r.min)} ${r.dvt}</td>
+          <td><span class="badge ${r.s.cls}">${r.s.label}</span></td>
+          <td>${r.isTP?`<button class="btn btn-sec btn-sm" onclick="openNhapTP('${r.id}')"><i class="ti ti-arrow-down-circle"></i>Nhập TP</button>`:r.isPKSX?`<button class="btn btn-sec btn-sm" onclick="openNhapPKSX('${r.id}')"><i class="ti ti-arrow-down-circle"></i>Nhập</button>`:`<button class="btn btn-sec btn-sm" onclick="openNhapHang('${r.id}')"><i class="ti ti-arrow-down-circle"></i>Nhập</button>`}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+    })()}
+  </div>`;
+}
+
+// ── TRANG TỪNG NHÓM ──
+let _hangFilter = 'all';
+let _hangSearch = '';
+function pNhomHang(nhom){
+  const cfg = NHOM_CFG[nhom];
+  const allHang = (db.khoHang||[]).filter(h=>h.nhom===nhom);
+  let list = allHang;
+  if(_hangFilter==='thieu') list=allHang.filter(h=>{const s=trangThaiHang(h.id);return s.label!=='Đủ hàng';});
+  if(_hangSearch.trim()){ const q=_hangSearch.toLowerCase(); list=list.filter(h=>(h.ma||'').toLowerCase().includes(q)||(h.ten||'').toLowerCase().includes(q)); }
+  const tongTon = allHang.reduce((s,h)=>s+getHangStock(h.id),0);
+  const hetHang = allHang.filter(h=>trangThaiHang(h.id).label!=='Đủ hàng').length;
+
+  return`
+  <div class="page-hdr">
+    <div>
+      <div class="page-title" style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:9px;background:${cfg.bg};display:flex;align-items:center;justify-content:center">
+          <i class="ti ${cfg.icon}" style="color:${cfg.color};font-size:18px"></i>
+        </div>
+        ${cfg.label}
+      </div>
+      <div class="page-sub">${allHang.length} mặt hàng · Tổng tồn: ${fmtN(tongTon)}</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sec" onclick="exportHangExcel('${nhom}')"><i class="ti ti-table-export"></i>Excel</button>
+      <button class="btn btn-primary" style="background:${cfg.color}" onclick="openMHang(null,'${nhom}')"><i class="ti ti-plus"></i>Thêm mặt hàng</button>
+    </div>
+  </div>
+
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="stat-card"><div class="stat-lbl">Số mặt hàng</div><div class="stat-val" style="color:${cfg.color}">${allHang.length}</div><div class="stat-desc">trong danh mục</div></div>
+    <div class="stat-card"><div class="stat-lbl">Tổng tồn kho</div><div class="stat-val">${fmtN(tongTon)}</div><div class="stat-desc">tổng các đơn vị</div></div>
+    <div class="stat-card" style="border-color:${hetHang>0?'#dc262633':'#16a34a33'};background:${hetHang>0?'var(--danger-bg)':'var(--success-bg)'}">
+      <div class="stat-lbl" style="color:${hetHang>0?'var(--danger)':'var(--success)'}">Cần bổ sung</div>
+      <div class="stat-val" style="color:${hetHang>0?'var(--danger)':'var(--success)'}">${hetHang}</div>
+      <div class="stat-desc">mặt hàng tồn thấp</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-hdr">
+      <div class="sec-title"><i class="ti ti-list"></i>Danh sách mặt hàng</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" value="${_hangSearch}" placeholder="Tìm mã, tên..."
+          oninput="_hangSearch=this.value;render()"
+          style="padding:6px 10px;border:1px solid var(--border2);border-radius:7px;font-size:13px;font-family:inherit;outline:none;width:180px">
+        <span class="chip${_hangFilter==='all'?' active':''}" onclick="_hangFilter='all';render()">Tất cả</span>
+        <span class="chip${_hangFilter==='thieu'?' active':''}" onclick="_hangFilter='thieu';render()">Thiếu/Hết</span>
+      </div>
+    </div>
+    ${allHang.length===0
+      ?`<div class="empty"><i class="ti ${cfg.icon}" style="color:${cfg.color}"></i><p>Chưa có mặt hàng nào trong nhóm ${cfg.label}.<br>Nhấn "Thêm mặt hàng" để bắt đầu.</p></div>`
+      :`<div class="tbl-wrap"><table class="dtbl">
+        <thead><tr>
+          <th>Mã</th><th>Tên mặt hàng</th><th>ĐVT</th>
+          <th class="num">Tồn kho</th><th class="num">Tồn min</th><th>Vị trí</th>
+          <th class="num">Giá nhập</th><th class="num">Giá bán</th>
+          <th>NCC / Ghi chú</th><th>TT</th><th></th>
+        </tr></thead>
+        <tbody>
+          ${list.length===0
+            ?`<tr><td colspan="11" style="text-align:center;padding:28px;color:var(--text2)">Không có kết quả.</td></tr>`
+            :list.map(h=>{
+              const s=trangThaiHang(h.id);
+              const ton=getHangStock(h.id);
+              const min=getHangMin(h.id);
+              const pct=min>0?Math.min(100,(ton/min)*100):(ton>0?100:0);
+              const barColor=s.label==='Đủ hàng'?'#16a34a':s.label==='Sắp hết'?'#d97706':'#dc2626';
+              return`<tr class="${s.label!=='Đủ hàng'?s.label==='Sắp hết'?'mat-row-warn':'mat-row-low':''}">
+                <td><span class="badge" style="background:${cfg.bg};color:${cfg.color}">${h.ma||'—'}</span></td>
+                <td style="font-weight:500">${h.ten}</td>
+                <td style="color:var(--text2)">${h.dvt||'—'}</td>
+                <td class="num" style="font-weight:700;color:${barColor};font-size:15px">${fmtN(ton)}</td>
+                <td class="num" style="color:var(--text2)">${fmtN(min)}</td>
+                <td style="font-size:12px;color:var(--text2)">${getHangViTri(h.id)||'—'}</td>
+                <td class="num">${h.giaNhap?fmt(h.giaNhap):'—'}</td>
+                <td class="num" style="color:var(--success)">${h.giaBan?fmt(h.giaBan):'—'}</td>
+                <td style="font-size:12px;color:var(--text2);max-width:160px">
+                  ${h.ncc?`<div>${h.ncc}</div>`:''}
+                  ${h.ghiChu?`<div style="color:var(--text3)">${h.ghiChu}</div>`:''}
+                  ${!h.ncc&&!h.ghiChu?'—':''}
+                </td>
+                <td>
+                  <span class="badge ${s.cls}">${s.label}</span>
+                  <div class="prog-wrap" style="width:60px;margin-top:4px"><div class="prog-bar" style="width:${pct}%;background:${barColor}"></div></div>
+                </td>
+                <td>
+                  <div style="display:flex;gap:4px">
+                    <button class="btn btn-ghost btn-sm" onclick="openMHang('${h.id}','${nhom}')" title="Sửa"><i class="ti ti-edit"></i></button>
+                    <button class="btn btn-ghost btn-sm" onclick="openNhapHang('${h.id}')" title="Nhập kho"><i class="ti ti-arrow-down-circle"></i></button>
+                    <button class="btn btn-ghost btn-sm" onclick="openXuatHang('${h.id}')" title="Xuất kho"><i class="ti ti-arrow-up-circle"></i></button>
+                    <button class="btn btn-ghost btn-sm" onclick="delHang('${h.id}')" title="Xóa"><i class="ti ti-trash" style="color:var(--danger)"></i></button>
+                  </div>
+                </td>
+              </tr>`;
+            }).join('')}
+        </tbody>
+      </table></div>`}
+  </div>
+
+  <div class="sec" style="margin-top:16px">
+    <div class="sec-hdr"><div class="sec-title"><i class="ti ti-history"></i>Lịch sử nhập/xuất — ${cfg.label}</div></div>
+    ${(()=>{
+      const ids = new Set(allHang.map(h=>h.id));
+      const recent = (db.khoPhieu||[]).filter(p=>ids.has(p.matId)).reverse().slice(0,8);
+      if(!recent.length) return`<div style="padding:14px 16px;font-size:13px;color:var(--text2)">Chưa có giao dịch nào.</div>`;
+      return`<div class="tbl-wrap"><table class="dtbl">
+        <thead><tr><th>Số phiếu</th><th>Loại</th><th>Mặt hàng</th><th class="num">Số lượng</th><th>Đơn hàng SX</th><th>Ngày</th></tr></thead>
+        <tbody>${recent.map(p=>`<tr>
+          <td style="font-size:11px;color:var(--text2)">${p.id}</td>
+          <td>${p.type==='nhap'?`<span class="badge b-teal"><i class="ti ti-arrow-down" style="font-size:11px"></i> Nhập</span>`:`<span class="badge b-amber"><i class="ti ti-arrow-up" style="font-size:11px"></i> Xuất</span>`}</td>
+          <td style="font-weight:500">${p.matName||'—'}<br><span style="font-size:11px;color:var(--text3)">${p.matCode||''}</span></td>
+          <td class="num" style="color:${p.type==='nhap'?'var(--success)':'var(--warn)'};font-weight:700">${p.type==='nhap'?'+':'−'}${fmtN(p.qty)} ${p.unit||''}</td>
+          <td>${p.orderCode?`<span class="badge b-blue">${p.orderCode}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
+          <td style="font-size:12px;color:var(--text2)">${p.date||'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+    })()}
+  </div>`;
+}
+
+// ── MODAL THÊM / SỬA MẶT HÀNG ──
+function openMHang(id, nhomDefault){
+  const h = id ? (db.khoHang||[]).find(x=>x.id===id) : null;
+  const nhom = h ? h.nhom : (nhomDefault||'thanh_pham');
+  const cfg = NHOM_CFG[nhom];
+  const autoMa = h ? h.ma : genMaHang(nhom);
+  const ton = h ? getHangStock(h.id) : 0;
+  const min = h ? getHangMin(h.id) : 0;
+  const viTri = h ? getHangViTri(h.id) : '';
+  const NHOM_OPTS = Object.entries(NHOM_CFG).map(([k,v])=>`<option value="${k}"${nhom===k?' selected':''}>${v.label}</option>`).join('');
+  const UNITS = ['cái','đôi','bộ','chiếc','hộp','túi','kg','g','m','cuộn','tờ','cây'];
+  openM(`
+  <div class="m-hdr">
+    <div class="m-title" style="display:flex;align-items:center;gap:8px">
+      <i class="ti ${cfg.icon}" style="color:${cfg.color};font-size:18px"></i>
+      ${h?'Sửa mặt hàng':'Thêm mặt hàng mới'}
+    </div>
+    <button class="btn btn-ghost" onclick="closeM()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="fr fr2">
+    <div class="fg">
+      <label class="fl">Nhóm kho</label>
+      <select class="fi" id="mh-nhom" onchange="onChangeNhomMH(this.value)">${NHOM_OPTS}</select>
+    </div>
+    <div class="fg">
+      <label class="fl">Mã mặt hàng</label>
+      <div style="position:relative">
+        <input class="fi" id="mh-ma" value="${autoMa}" style="font-weight:600;color:${cfg.color}">
+        ${!h?`<button onclick="document.getElementById('mh-ma').value=genMaHang(document.getElementById('mh-nhom').value)"
+          title="Tạo mã tự động"
+          style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:2px"
+          onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">
+          <i class="ti ti-refresh"></i></button>`:''}
+      </div>
+    </div>
+  </div>
+  <div class="fg"><label class="fl">Tên mặt hàng *</label><input class="fi" id="mh-ten" value="${h?.ten||''}" placeholder="Nhập tên mặt hàng..."></div>
+  <div class="fr fr2">
+    <div class="fg">
+      <label class="fl">Đơn vị tính</label>
+      <select class="fi" id="mh-dvt">${UNITS.map(u=>`<option${h?.dvt===u?' selected':''}>${u}</option>`).join('')}<option${!UNITS.includes(h?.dvt)?' selected':''}>Khác</option></select>
+    </div>
+    <div class="fg"><label class="fl">Vị trí trong kho</label><input class="fi" id="mh-vitri" value="${viTri}" placeholder="VD: Kệ A, Tầng 1..."></div>
+  </div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Tồn kho hiện tại</label><input type="number" class="fi" id="mh-ton" value="${ton}" min="0" step="0.001"></div>
+    <div class="fg"><label class="fl">Tồn kho tối thiểu</label><input type="number" class="fi" id="mh-min" value="${min}" min="0" step="0.001"></div>
+  </div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Giá nhập (₫)</label><input type="number" class="fi" id="mh-gianhap" value="${h?.giaNhap||''}" min="0" placeholder="0"></div>
+    <div class="fg"><label class="fl">Giá bán (₫)</label><input type="number" class="fi" id="mh-giaban" value="${h?.giaBan||''}" min="0" placeholder="0"></div>
+  </div>
+  <div class="fg"><label class="fl">Nhà cung cấp</label><input class="fi" id="mh-ncc" value="${h?.ncc||''}" placeholder="Tên NCC..."></div>
+  <div class="fg"><label class="fl">Ghi chú</label><input class="fi" id="mh-ghichu" value="${h?.ghiChu||''}" placeholder="Ghi chú..."></div>
+  <div class="m-foot">
+    <button class="btn btn-sec" onclick="closeM()">Hủy</button>
+    <button class="btn btn-primary" style="background:${cfg.color}" onclick="saveMHang('${id||''}')"><i class="ti ti-check"></i>Lưu</button>
+  </div>`,true);
+}
+
+function onChangeNhomMH(nhom){
+  const cfg=NHOM_CFG[nhom]||NHOM_CFG.thanh_pham;
+  const maEl=document.getElementById('mh-ma');
+  if(maEl) maEl.value=genMaHang(nhom);
+}
+
+function saveMHang(id){
+  const nhom = document.getElementById('mh-nhom').value;
+  const ma   = document.getElementById('mh-ma').value.trim();
+  const ten  = document.getElementById('mh-ten').value.trim();
+  if(!ten){ alert('Vui lòng nhập tên mặt hàng.'); return; }
+  const dup = (db.khoHang||[]).find(h=>h.ma===ma&&h.id!==id);
+  if(dup){ alert(`Mã "${ma}" đã tồn tại.`); return; }
+  const dvt    = document.getElementById('mh-dvt').value;
+  const viTri  = document.getElementById('mh-vitri').value.trim();
+  const ton    = parseFloat(document.getElementById('mh-ton').value)||0;
+  const min    = parseFloat(document.getElementById('mh-min').value)||0;
+  const giaNhap= parseFloat(document.getElementById('mh-gianhap').value)||0;
+  const giaBan = parseFloat(document.getElementById('mh-giaban').value)||0;
+  const ncc    = document.getElementById('mh-ncc').value.trim();
+  const ghiChu = document.getElementById('mh-ghichu').value.trim();
+  if(!db.khoHang) db.khoHang=[];
+  if(id){
+    const h=db.khoHang.find(x=>x.id===id);
+    Object.assign(h,{nhom,ma,ten,dvt,giaNhap,giaBan,ncc,ghiChu,updatedAt:today()});
+  } else {
+    const newId=uid();
+    db.khoHang.push({id:newId,nhom,ma,ten,dvt,giaNhap,giaBan,ncc,ghiChu,createdAt:today(),updatedAt:today()});
+    if(!db.khoStock['h_'+newId]) db.khoStock['h_'+newId]={tonKho:ton,tonMin:min,viTri};
+    else{ db.khoStock['h_'+newId].tonKho=ton; db.khoStock['h_'+newId].tonMin=min; db.khoStock['h_'+newId].viTri=viTri; }
+    saveDB(); closeM(); go(nhom); return;
+  }
+  // Cập nhật tồn kho
+  if(!db.khoStock['h_'+id]) db.khoStock['h_'+id]={tonKho:0,tonMin:0,viTri:''};
+  db.khoStock['h_'+id]={tonKho:ton,tonMin:min,viTri};
+  saveDB(); closeM(); render();
+}
+
+function delHang(id){
+  if(!confirm('Xóa mặt hàng này? Lịch sử giao dịch vẫn được giữ lại.')) return;
+  db.khoHang=(db.khoHang||[]).filter(h=>h.id!==id);
+  saveDB(); render();
+}
+
+// ── NHẬP / XUẤT NHANH MẶT HÀNG KHO ──
+function openNhapHang(hId){
+  const h = (db.khoHang||[]).find(x=>x.id===hId);
+  if(!h) return;
+  const cfg = NHOM_CFG[h.nhom]||NHOM_CFG.thanh_pham;
+  openM(`
+  <div class="m-hdr">
+    <div class="m-title" style="color:var(--success)"><i class="ti ti-arrow-down-circle"></i> Nhập kho — ${h.ten}</div>
+    <button class="btn btn-ghost" onclick="closeM()"><i class="ti ti-x"></i></button>
+  </div>
+  <div style="background:var(--bg);border-radius:8px;padding:11px 14px;margin-bottom:14px;font-size:13px;display:flex;justify-content:space-between">
+    <div><span class="badge" style="background:${cfg.bg};color:${cfg.color}">${h.ma}</span> · <strong>${h.ten}</strong></div>
+    <div>Tồn hiện tại: <strong style="color:var(--accent)">${fmtN(getHangStock(hId))} ${h.dvt}</strong></div>
+  </div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Số lượng nhập</label><input type="number" class="fi" id="nh-qty" min="0" step="0.001" placeholder="0" autofocus></div>
+    <div class="fg"><label class="fl">Đơn giá nhập (₫)</label><input type="number" class="fi" id="nh-price" value="${h.giaNhap||''}" min="0"></div>
+  </div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Nhà cung cấp</label><input class="fi" id="nh-ncc" value="${h.ncc||''}" placeholder="NCC..."></div>
+    <div class="fg"><label class="fl">Ngày nhập</label><input class="fi" id="nh-ngay" value="${today()}"></div>
+  </div>
+  <div class="fg"><label class="fl">Ghi chú</label><input class="fi" id="nh-note" placeholder="Ghi chú phiếu nhập..."></div>
+  <div class="m-foot">
+    <button class="btn btn-sec" onclick="closeM()">Hủy</button>
+    <button class="btn btn-primary" style="background:var(--success)" onclick="luuNhapHang('${hId}')"><i class="ti ti-check"></i>Nhập kho</button>
+  </div>`);
+}
+
+function luuNhapHang(hId){
+  const h=(db.khoHang||[]).find(x=>x.id===hId); if(!h) return;
+  const qty=parseFloat(document.getElementById('nh-qty').value)||0;
+  if(qty<=0){alert('Số lượng phải > 0.');return;}
+  const price=parseFloat(document.getElementById('nh-price').value)||0;
+  const ncc=document.getElementById('nh-ncc').value.trim();
+  const ngay=document.getElementById('nh-ngay').value||today();
+  const note=document.getElementById('nh-note').value.trim();
+  if(!db.khoStock['h_'+hId]) db.khoStock['h_'+hId]={tonKho:0,tonMin:0,viTri:''};
+  db.khoStock['h_'+hId].tonKho=(db.khoStock['h_'+hId].tonKho||0)+qty;
+  db.khoPhieu.push({id:'NK-H-'+Date.now().toString().slice(-6),type:'nhap',matId:hId,matCode:h.ma,matName:h.ten,unit:h.dvt,qty,price,ncc,note,date:ngay,nhom:h.nhom});
+  saveDB(); closeM(); render();
+}
+
+function openXuatHang(hId){
+  const h=(db.khoHang||[]).find(x=>x.id===hId); if(!h) return;
+  const cfg=NHOM_CFG[h.nhom]||NHOM_CFG.thanh_pham;
+  const orders=(db.orders||[]).filter(o=>o.status==='inprogress'||o.status==='confirmed'||o.status==='draft');
+  const orderOpts=orders.map(o=>{const p=db.products.find(x=>x.id===o.productId);return`<option value="${o.id}_${o.orderCode||''}">${o.orderCode||'—'} — ${p?p.name:'?'}</option>`;}).join('');
+  openM(`
+  <div class="m-hdr">
+    <div class="m-title" style="color:var(--warn)"><i class="ti ti-arrow-up-circle"></i> Xuất kho — ${h.ten}</div>
+    <button class="btn btn-ghost" onclick="closeM()"><i class="ti ti-x"></i></button>
+  </div>
+  <div style="background:var(--bg);border-radius:8px;padding:11px 14px;margin-bottom:14px;font-size:13px;display:flex;justify-content:space-between">
+    <div><span class="badge" style="background:${cfg.bg};color:${cfg.color}">${h.ma}</span> · <strong>${h.ten}</strong></div>
+    <div>Tồn hiện tại: <strong style="color:${getHangStock(hId)>0?'var(--success)':'var(--danger)'}">${fmtN(getHangStock(hId))} ${h.dvt}</strong></div>
+  </div>
+  <div class="fr fr2">
+    <div class="fg"><label class="fl">Số lượng xuất</label><input type="number" class="fi" id="xh-qty" min="0" step="0.001" placeholder="0" autofocus></div>
+    <div class="fg"><label class="fl">Ngày xuất</label><input class="fi" id="xh-ngay" value="${today()}"></div>
+  </div>
+  <div class="fg">
+    <label class="fl">Liên kết đơn hàng sản xuất (tùy chọn)</label>
+    <select class="fi" id="xh-order">
+      <option value="">— Không liên kết —</option>
+      ${orderOpts}
+    </select>
+  </div>
+  <div class="fg"><label class="fl">Ghi chú</label><input class="fi" id="xh-note" placeholder="Lý do xuất kho..."></div>
+  <div class="m-foot">
+    <button class="btn btn-sec" onclick="closeM()">Hủy</button>
+    <button class="btn btn-primary" style="background:var(--warn)" onclick="luuXuatHang('${hId}')"><i class="ti ti-check"></i>Xuất kho</button>
+  </div>`);
+}
+
+function luuXuatHang(hId){
+  const h=(db.khoHang||[]).find(x=>x.id===hId); if(!h) return;
+  const qty=parseFloat(document.getElementById('xh-qty').value)||0;
+  if(qty<=0){alert('Số lượng phải > 0.');return;}
+  const ngay=document.getElementById('xh-ngay').value||today();
+  const note=document.getElementById('xh-note').value.trim();
+  const orderVal=document.getElementById('xh-order').value;
+  const [orderId,orderCode]=(orderVal||'').split('_');
+  if(!db.khoStock['h_'+hId]) db.khoStock['h_'+hId]={tonKho:0,tonMin:0,viTri:''};
+  db.khoStock['h_'+hId].tonKho=Math.max(0,(db.khoStock['h_'+hId].tonKho||0)-qty);
+  db.khoPhieu.push({id:'XK-H-'+Date.now().toString().slice(-6),type:'xuat',matId:hId,matCode:h.ma,matName:h.ten,unit:h.dvt,qty,orderId:orderId||'',orderCode:orderCode||'',note,date:ngay,nhom:h.nhom});
+  saveDB(); closeM(); render();
+}
+
+// ── XUẤT EXCEL DANH MỤC ──
+async function exportHangExcel(nhom){
+  if(typeof ExcelJS==='undefined'){alert('Đang tải ExcelJS, thử lại.');return;}
+  const cfg=NHOM_CFG[nhom];
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet(cfg.label);
+  ws.columns=[
+    {header:'Mã',key:'ma',width:12},{header:'Tên mặt hàng',key:'ten',width:30},
+    {header:'ĐVT',key:'dvt',width:8},{header:'Tồn kho',key:'ton',width:12},
+    {header:'Tồn min',key:'min',width:12},{header:'Vị trí',key:'vitri',width:18},
+    {header:'Giá nhập',key:'giaNhap',width:14},{header:'Giá bán',key:'giaBan',width:14},
+    {header:'NCC',key:'ncc',width:22},{header:'Ghi chú',key:'ghiChu',width:24},
+    {header:'Trạng thái',key:'tt',width:12},
+  ];
+  ws.getRow(1).font={bold:true};
+  (db.khoHang||[]).filter(h=>h.nhom===nhom).forEach(h=>{
+    ws.addRow({ma:h.ma,ten:h.ten,dvt:h.dvt,ton:getHangStock(h.id),min:getHangMin(h.id),vitri:getHangViTri(h.id),giaNhap:h.giaNhap||0,giaBan:h.giaBan||0,ncc:h.ncc||'',ghiChu:h.ghiChu||'',tt:trangThaiHang(h.id).label});
+  });
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`${cfg.label}_${today().replace(/\//g,'-')}.xlsx`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+
+window.addEventListener('storage', e=>{
+  if(e.key==='gt_db'){ loadDB(); render(); updateGTStatus(); }
+});
+
+loadDB();
+_nhapRows = [{matId:'',qty:0,price:0}];
+updateGTStatus();
+go('dashboard');
+
+// Hiển thị trạng thái kết nối
+setTimeout(()=>{
+  const el = document.getElementById('gt-status');
+  const mats = (db.materials||[]).length;
+  if(mats===0){
+    el.innerHTML='<span style="color:var(--warn)">⚠ Chưa có dữ liệu. Mở GiáThành Pro trong cùng trình duyệt.</span>';
+  }
+}, 300);
+
+// ══════════════════════════════════════════════════
+//  SYNC MODULE — Kết nối Render Server (giống GiáThành Pro)
+// ══════════════════════════════════════════════════
+let _syncTimer=null,_syncPushing=false,_pushDebounce=null,_sse=null;
+
+function getMachineId(){
+  let id=localStorage.getItem('gt_machine_id');
+  if(!id){id='K'+Math.random().toString(36).substr(2,6).toUpperCase();localStorage.setItem('gt_machine_id',id);}
+  return id;
+}
+function getSyncCfg(){
+  return{
+    dbUrl:(localStorage.getItem('gt_fb_url')||'').replace(/\/+$/,''),
+    enabled:localStorage.getItem('gt_sync_on')==='1',
+    interval:(parseInt(localStorage.getItem('gt_sync_interval'))||30)*1000
+  };
+}
+function setSyncDot(s,msg){
+  const dot=document.getElementById('kho-sync-dot');
+  const txt=document.getElementById('kho-sync-txt');
+  if(!dot||!txt) return;
+  const icons={ok:'🟢',err:'🔴',sync:'⏳',off:'⚪'};
+  dot.textContent=icons[s]||'⚪';
+  txt.textContent=msg||(s==='ok'?'Đồng bộ':s==='err'?'Lỗi':s==='sync'?'Đang sync...':'Tắt');
+}
+
+// Ghi đè saveDB để auto-push khi kho thay đổi
+const _origSaveDB = saveDB;
+function saveDB(){
+  localStorage.setItem('gt_db',JSON.stringify(db));
+  clearTimeout(_pushDebounce);
+  _pushDebounce=setTimeout(pushKhoSync,3000);
+}
+
+async function pushKhoSync(){
+  const cfg=getSyncCfg();
+  if(!cfg.enabled||!cfg.dbUrl) return;
+  if(_syncPushing){clearTimeout(_pushDebounce);_pushDebounce=setTimeout(pushKhoSync,3000);return;}
+  _syncPushing=true; setSyncDot('sync','Đang đẩy...');
+  try{
+    const now=Date.now();
+    const payload={
+      materials:db.materials||[],factories:db.factories||[],
+      products:db.products||[],orders:db.orders||[],
+      khoStock:db.khoStock||{},khoPhieu:db.khoPhieu||[],khoHang:db.khoHang||[],
+      _at:now,_by:getMachineId()
+    };
+    const r=await fetch(`${cfg.dbUrl}/giathanh.json`,{
+      method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload),cache:'no-cache'
+    });
+    if(r.ok){
+      localStorage.setItem('gt_sync_at',String(now));
+      localStorage.setItem('gt_last_sync',new Date().toLocaleString('vi-VN'));
+      setSyncDot('ok','Đã lưu '+new Date().toLocaleTimeString('vi-VN'));
+    } else setSyncDot('err','Lỗi '+r.status);
+  }catch(e){setSyncDot('err','Mất kết nối');}
+  finally{_syncPushing=false;}
+}
+
+async function pullKhoSync(silent=false){
+  const cfg=getSyncCfg();
+  if(!cfg.enabled||!cfg.dbUrl) return;
+  if(!silent) setSyncDot('sync','Đang kéo...');
+  try{
+    const r=await fetch(`${cfg.dbUrl}/giathanh.json`,{cache:'no-cache'});
+    if(!r.ok){setSyncDot('err','Lỗi '+r.status);return;}
+    const raw=await r.json();
+    const remote=(raw&&raw.record!==undefined)?raw.record:raw;
+    if(!remote||typeof remote!=='object') return;
+    if(!remote.materials&&!remote.orders&&!remote.products){
+      setSyncDot('sync','Bin trống — đẩy...');_syncPushing=false;await pushKhoSync();return;
+    }
+    const remoteAt=remote._at||0;
+    const localAt=parseInt(localStorage.getItem('gt_sync_at')||'0');
+    if(remoteAt>localAt&&remote._by!==getMachineId()){
+      // Merge dữ liệu từ remote
+      ['materials','factories','products','orders'].forEach(key=>{
+        const local=db[key]||[];
+        (remote[key]||[]).forEach(item=>{
+          if(!item||!item.id) return;
+          const idx=local.findIndex(x=>x.id===item.id);
+          if(idx===-1) local.push(item);
+          else if((item.updatedAt||'')>(local[idx].updatedAt||'')) local[idx]=item;
+        });
+        db[key]=local;
+      });
+      // Merge kho data
+      if(remote.khoStock) Object.assign(db.khoStock||(db.khoStock={}),remote.khoStock);
+      if(remote.khoPhieu) db.khoPhieu=remote.khoPhieu;
+      if(remote.khoHang)  db.khoHang=remote.khoHang;
+      localStorage.setItem('gt_db',JSON.stringify(db));
+      localStorage.setItem('gt_sync_at',String(remoteAt));
+      render(); updateGTStatus();
+      setSyncDot('ok','Nhận cập nhật '+new Date().toLocaleTimeString('vi-VN'));
+    } else {
+      setSyncDot('ok','Đồng bộ '+new Date().toLocaleTimeString('vi-VN'));
+    }
+  }catch(e){setSyncDot('err','Lỗi: '+e.message.slice(0,30));}
+}
+
+function startKhoSync(){
+  const cfg=getSyncCfg();
+  if(_syncTimer){clearInterval(_syncTimer);_syncTimer=null;}
+  if(_sse){try{_sse.close();}catch(e){}_sse=null;}
+  if(!cfg.enabled||!cfg.dbUrl){setSyncDot('off','Đồng bộ tắt');return;}
+  pullKhoSync(true);
+  // SSE real-time
+  try{
+    _sse=new EventSource(cfg.dbUrl.replace(/\/+$/,'')+'/events');
+    _sse.onopen=()=>{setSyncDot('ok','⚡ Real-time');if(_syncTimer){clearInterval(_syncTimer);_syncTimer=null;}};
+    _sse.addEventListener('update',e=>{
+      try{
+        const remote=JSON.parse(e.data);
+        if(!remote||remote._by===getMachineId()) return;
+        if(remote.materials) db.materials=remote.materials;
+        if(remote.products)  db.products=remote.products;
+        if(remote.orders)    db.orders=remote.orders;
+        if(remote.factories) db.factories=remote.factories;
+        if(remote.khoStock)  Object.assign(db.khoStock||(db.khoStock={}),remote.khoStock);
+        if(remote.khoPhieu)  db.khoPhieu=remote.khoPhieu;
+        if(remote.khoHang)   db.khoHang=remote.khoHang;
+        localStorage.setItem('gt_db',JSON.stringify(db));
+        render(); updateGTStatus();
+        setSyncDot('ok','⚡ '+new Date().toLocaleTimeString('vi-VN'));
+      }catch(err){}
+    });
+    _sse.onerror=()=>{if(!_syncTimer) _syncTimer=setInterval(()=>pullKhoSync(true),cfg.interval);};
+  }catch(e){_syncTimer=setInterval(()=>pullKhoSync(true),cfg.interval);}
+}
+
+startKhoSync();
+</script>
+</body>
+</html>
