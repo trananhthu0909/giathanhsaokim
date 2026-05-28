@@ -2645,7 +2645,7 @@ function openSiPicker(oid,ci){
   const bomCodes=(p?p.bom||[]:[])
     .filter(b=>siType==='phu'?b.siType==='phu':b.siType==='chinh'||b.siType==='si'||(!b.siType&&(b.matCode||'').toUpperCase().startsWith('S')))
     .map(b=>b.matCode);
-  const allSi=(db.materials||[]);
+  const allSi=(db.materials||[]).filter(m=>m.code.toUpperCase().startsWith('S'));
   const curCode=c.siMatCode||c.colorCode||'';
 
   const rows=allSi.map(m=>{
