@@ -2618,36 +2618,99 @@ function addOCTyped(id,siType){
   o.colors.push({id:uid(),colorCode:'',colorName:'',colorHex:'#aaaaaa',qty:0,siType});
   saveDB();go('order-detail',id);
 }
-// Render dropdown chọn NPL sỉ cho từng màu trong đơn hàng
+// Render nút chọn NPL sỉ - mở picker thay vì dropdown
 function renderNPLDropdown(oid,ci,c,p,compact){
   const siType=c.siType||'chinh';
-  // Ưu tiên lấy từ BOM Định mức Sỉ của sản phẩm
-  const bomMats=(p?p.bom||[]:[])
-    .filter(b=>siType==='phu'?b.siType==='phu'
-      :b.siType==='chinh'||b.siType==='si'||(!b.siType&&(b.matCode||'').toUpperCase().startsWith('S')))
-    .map(b=>b.matCode);
-  const allMats=db.materials||[];
-  // BOM trước, rồi toàn bộ danh mục
-  const allCodes=[...new Set([...bomMats,...allMats.map(m=>m.code)])];
-  // Giá trị hiện tại (có thể là text cũ như "JEAN")
+  // Tìm tên NPL đã chọn
   const curCode=c.siMatCode||c.colorCode||'';
-  const curInList=allCodes.includes(curCode);
-
-  const opts=allCodes.map(code=>{
-    const mat=allMats.find(m=>m.code===code)||{code,name:code};
-    const sel=(c.siMatCode===code||(!c.siMatCode&&c.colorCode===code))?'selected':'';
-    const star=bomMats.includes(code)?'★ ':'';
-    return '<option value="'+code+'" '+sel+'>'+star+(mat.name||code)+'</option>';
-  }).join('');
-  // Nếu giá trị hiện tại không có trong danh sách (VD: text cũ "JEAN") → thêm vào đầu
-  const extraOpt=curCode&&!curInList?'<option value="'+curCode+'" selected>'+curCode+' (cũ)</option>':'';
-
+  const curMat=(db.materials||[]).find(m=>m.code===curCode);
+  const curName=curMat?curMat.name:(curCode||'');
   const fs=compact?'11':'12';
-  const pad=compact?'3px 5px':'4px 6px';
-  return '<select class="fi" style="font-size:'+fs+'px;padding:'+pad+';width:100%;font-weight:600" '
-    +'onchange="updOCSiCode(\''+oid+'\','+ci+',this.value)">'
-    +'<option value="">— Chọn NPL sỉ —</option>'+extraOpt+opts
-    +'</select>';
+  const btnStyle=compact
+    ?'font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--bg);cursor:pointer;width:100%;text-align:left;display:flex;align-items:center;gap:4px;justify-content:space-between'
+    :'font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--bg);cursor:pointer;width:100%;text-align:left;display:flex;align-items:center;gap:6px;justify-content:space-between';
+  return '<button type="button" onclick="openSiPicker(\''+oid+'\','+ci+')" style="'+btnStyle+'">'
+    +'<span style="color:'+(curName?'var(--text)':'var(--text3)')+'">'+( curName||'— Chọn NPL sỉ —')+'</span>'
+    +'<i class="ti ti-chevron-down" style="font-size:10px;color:var(--text3);flex-shrink:0"></i>'
+    +'</button>';
+}
+
+// Mở picker chọn NPL sỉ
+function openSiPicker(oid,ci){
+  const o=db.orders.find(x=>x.id===oid); if(!o) return;
+  const c=o.colors[ci]; if(!c) return;
+  const siType=c.siType||'chinh';
+  // Lấy danh sách Si từ danh mục - ưu tiên theo BOM sản phẩm
+  const p=GP(o.productId);
+  const bomCodes=(p?p.bom||[]:[])
+    .filter(b=>siType==='phu'?b.siType==='phu':b.siType==='chinh'||b.siType==='si'||(!b.siType&&(b.matCode||'').toUpperCase().startsWith('S')))
+    .map(b=>b.matCode);
+  const allSi=(db.materials||[]);
+  const curCode=c.siMatCode||c.colorCode||'';
+
+  const rows=allSi.map(m=>{
+    const inBOM=bomCodes.includes(m.code);
+    const isSel=m.code===curCode;
+    return`<tr onclick="pickSiMat('${oid}',${ci},'${m.code}')" style="cursor:pointer;background:${isSel?'var(--accent-bg)':''};"
+      onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background='${isSel?'var(--accent-bg)':''}'">
+      <td style="padding:8px 12px;font-weight:600;color:var(--accent)">${m.code}</td>
+      <td style="padding:8px 12px;font-weight:${inBOM?700:400}">${inBOM?'★ ':''}${m.name||'—'}</td>
+      <td style="padding:8px 12px;color:var(--text2)">${m.unit||'—'}</td>
+      <td style="padding:8px 12px;text-align:right;color:var(--text2)">${m.price?(+m.price).toLocaleString('vi-VN')+' ₫':'—'}</td>
+      <td style="padding:8px 6px;text-align:center">${isSel?'<i class="ti ti-check" style="color:var(--accent)"></i>':''}</td>
+    </tr>`;
+  }).join('');
+
+  openM(`<div style="padding:0">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:700;font-size:15px">Chọn NPL sỉ</div>
+      <button onclick="closeM()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+    </div>
+    <div style="padding:8px 12px;border-bottom:1px solid var(--border)">
+      <input id="si-picker-search" class="fi" placeholder="🔍 Tìm tên hoặc mã NPL..." oninput="filterSiPicker(this.value)"
+        style="font-size:13px" autofocus>
+    </div>
+    <div style="max-height:380px;overflow-y:auto" id="si-picker-body">
+      <table style="width:100%;border-collapse:collapse" id="si-picker-tbl">
+        <thead style="position:sticky;top:0;background:var(--bg2)">
+          <tr>
+            <th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--text2);font-weight:600">Mã</th>
+            <th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--text2);font-weight:600">Tên NPL</th>
+            <th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--text2);font-weight:600">ĐVT</th>
+            <th style="padding:8px 12px;text-align:right;font-size:12px;color:var(--text2);font-weight:600">Giá</th>
+            <th style="width:32px"></th>
+          </tr>
+        </thead>
+        <tbody id="si-picker-rows">${rows||'<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text3)">Chưa có NPL sỉ trong danh mục</td></tr>'}</tbody>
+      </table>
+    </div>
+    <div style="padding:10px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)">
+      ★ = NPL có trong định mức sỉ của sản phẩm · Nhấn vào dòng để chọn
+    </div>
+  </div>`,'620px');
+  // Lưu context để dùng khi filter
+  window._siPickerCtx={oid,ci,bomCodes,curCode};
+  setTimeout(()=>document.getElementById('si-picker-search')?.focus(),100);
+}
+
+function filterSiPicker(q){
+  const ctx=window._siPickerCtx||{};
+  const kw=(q||'').toLowerCase();
+  const rows=document.querySelectorAll('#si-picker-rows tr');
+  rows.forEach(tr=>{
+    const text=tr.textContent.toLowerCase();
+    tr.style.display=(!kw||text.includes(kw))?'':'none';
+  });
+}
+
+function pickSiMat(oid,ci,matCode){
+  const o=db.orders.find(x=>x.id===oid); if(!o) return;
+  const c=o.colors[ci]; if(!c) return;
+  c.siMatCode=matCode;
+  c.colorCode=matCode;
+  saveDB();
+  closeM();
+  go('order-detail',oid);
 }
 
 function updOCSiCode(oid,ci,matCode){
