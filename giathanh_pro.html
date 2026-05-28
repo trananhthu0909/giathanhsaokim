@@ -2387,7 +2387,7 @@ function pOrderDetail(id){
                   <input type="color" id="ch-${id}-${ci}" value="${hex}" onchange="applyColorHex('${id}',${ci},this.value)" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none">
                 </label>
               </td>
-              <td style="padding:6px 8px"><input class="dtbl2-in" value="${c.colorCode||''}" placeholder="Mã..." oninput="updOC('${id}',${ci},'colorCode',this.value)" style="font-size:12px;font-weight:700;width:100%"></td>
+              <td style="padding:4px 6px;min-width:150px">${renderNPLDropdown(id,ci,c,p,true)}</td>
               <td style="padding:6px 8px">
                 <input class="dtbl2-in" value="${c.colorName||''}" placeholder="Tên màu..." oninput="autoColorHex('${id}',${ci},this.value)" style="font-size:12px;width:100%">
                 <div id="chint-${id}-${ci}" style="font-size:10px;color:${det?'var(--success)':'var(--text3)'}">${det?'✓ Nhận màu':''}</div>
