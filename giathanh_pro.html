@@ -1956,62 +1956,112 @@ function calcOrderMats(o){
   if(!p||(p.bom||[]).length===0) return [];
   const meta=o.matMeta||{};
   const allColors=o.colors||[];
+  const mats=db.materials||[];
 
-  return (p.bom||[]).map(m=>{
-    // Xác định loại từ siType trong BOM, fallback theo matCode prefix
-    const st=m.siType||((m.matCode||'').toUpperCase().startsWith('S')?'chinh':'pk');
-    const isSiChinh=st==='chinh';
-    const isSiPhu  =st==='phu';
-    const isSi     =isSiChinh||isSiPhu;
+  // Phân loại BOM
+  const bomSiChinh=(p.bom||[]).filter(b=>b.siType==='chinh'||(!b.siType&&(b.matCode||'').toUpperCase().startsWith('S')));
+  const bomSiPhu  =(p.bom||[]).filter(b=>b.siType==='phu');
+  const bomPK     =(p.bom||[]).filter(b=>b.siType==='pk'||b.siType==='npl'||(!b.siType&&!(b.matCode||'').toUpperCase().startsWith('S')));
 
-    const dmEff=(m.dm||0)*(1+(m.hh||0)/100);
+  const result=[];
 
-    // byColor indexed by ALL colors; PK và Sỉ chính chỉ lấy màu Sỉ chính; Sỉ phụ chỉ lấy màu Sỉ phụ
+  // Helper tính một hàng Si từ siCode + bomItem tham chiếu + màu tương ứng
+  function makeSiRow(siCode,bomRef,relevantColors,isSiPhu){
+    // Tìm vật liệu theo mã trước, nếu không tìm theo tên
+    let siMat=mats.find(x=>x.code===siCode);
+    if(!siMat) siMat=mats.find(x=>(x.name||'').toLowerCase()===siCode.toLowerCase());
+    if(!siMat) siMat={code:siCode,name:siCode,price:0,unit:''};
+    const realCode=siMat.code||siCode; // mã thực tế (VD: S008)
+    const dmEff=(bomRef?.dm||0)*(1+(bomRef?.hh||0)/100);
     const byColor=allColors.map((c,ci)=>{
       const colorSiType=c.siType||'chinh';
-      if(isSiPhu   && colorSiType!=='phu') return 0;  // Sỉ phụ chỉ dùng màu Sỉ phụ
-      if(!isSiPhu  && colorSiType==='phu') return 0;  // Sỉ chính + PK chỉ dùng màu Sỉ chính
-      if(isSi && meta[m.matCode]?.qtyOverride?.[ci]!==undefined)
+      if(isSiPhu&&colorSiType!=='phu') return 0;
+      if(!isSiPhu&&colorSiType==='phu') return 0;
+      const cCode=c.siMatCode||c.colorCode||'';
+      // Khớp theo mã hoặc tên
+      const cMat=mats.find(x=>x.code===cCode)||mats.find(x=>(x.name||'').toLowerCase()===cCode.toLowerCase());
+      const cRealCode=cMat?cMat.code:cCode;
+      if(cRealCode!==realCode) return 0;
+      if(meta[realCode]?.qtyOverride?.[ci]!==undefined)
+        return parseFloat(meta[realCode].qtyOverride[ci]);
+      return parseFloat((dmEff*(c.qty||0)).toFixed(3));
+    });
+    const total=parseFloat(byColor.reduce((s,v)=>s+v,0).toFixed(3));
+    const price=parseFloat(siMat.price||0);
+    const matId=siMat.id||'';
+    const khoObj=(db.khoStock||{})[matId]||(db.khoStock||{})[realCode];
+    const khoVal=khoObj!=null?(typeof khoObj==='object'?khoObj.tonKho:khoObj):0;
+    const manualStock=(o.materialStock||{})[realCode];
+    const khoStock=parseFloat(khoVal)||0;
+    const stock=manualStock!==undefined?parseFloat(manualStock):khoStock;
+    const toBuy=parseFloat(Math.max(0,total-stock).toFixed(3));
+    const totalTT=byColor.reduce((s,v)=>s+v*price,0);
+    return{
+      matCode:realCode,matName:siMat.name||siCode,unit:siMat.unit||bomRef?.unit||'—',
+      dm:bomRef?.dm||0,hh:bomRef?.hh||0,price,
+      siType:isSiPhu?'phu':'chinh',dmEff,byColor,total,stock,toBuy,
+      isSi:true,isSiChinh:!isSiPhu,isSiPhu,
+      mauSac:meta[realCode]?.mauSac||'',
+      fromKho:manualStock===undefined&&khoStock>0,khoStock,
+      pricePerColor:null,totalTT
+    };
+  }
+
+  // Hàm lấy realCode từ giá trị màu (tìm theo mã rồi theo tên)
+  function getRealCode(val){
+    if(!val) return '';
+    const byCode=mats.find(x=>x.code===val);
+    if(byCode) return byCode.code;
+    const byName=mats.find(x=>(x.name||'').toLowerCase()===val.toLowerCase());
+    if(byName) return byName.code;
+    return val;
+  }
+
+  // ── Sỉ chính: 1 hàng / mã sỉ duy nhất từ màu ──
+  const chiColors=allColors.filter(c=>(c.siType||'chinh')!=='phu');
+  const chiCodes=[...new Set(chiColors.map(c=>getRealCode(c.siMatCode||c.colorCode||'')).filter(Boolean))];
+  const bomChinhRef=bomSiChinh[0]||null;
+  chiCodes.forEach(siCode=>result.push(makeSiRow(siCode,bomChinhRef,chiColors,false)));
+
+  // ── Sỉ phụ: 1 hàng / mã sỉ duy nhất từ màu ──
+  const phuColors=allColors.filter(c=>c.siType==='phu');
+  const phuCodes=[...new Set(phuColors.map(c=>getRealCode(c.siMatCode||c.colorCode||'')).filter(Boolean))];
+  const bomPhuRef=bomSiPhu[0]||null;
+  phuCodes.forEach(siCode=>result.push(makeSiRow(siCode,bomPhuRef,phuColors,true)));
+
+  // ── NPL/PK: từ BOM như cũ ──
+  bomPK.forEach(m=>{
+    const st='pk';
+    const dmEff=(m.dm||0)*(1+(m.hh||0)/100);
+    const byColor=allColors.map((c,ci)=>{
+      if((c.siType||'chinh')==='phu') return 0;
+      if(meta[m.matCode]?.qtyOverride?.[ci]!==undefined)
         return parseFloat(meta[m.matCode].qtyOverride[ci]);
       return parseFloat((dmEff*(c.qty||0)).toFixed(3));
     });
-
     const total=parseFloat(byColor.reduce((s,v)=>s+v,0).toFixed(3));
-    // Tìm matId từ matCode để tra khoStock (PM Kho lưu theo ID)
-    const matId=(db.materials||[]).find(x=>x.code===m.matCode)?.id||'';
+    const mat=mats.find(x=>x.code===m.matCode);
+    const price=parseFloat(mat?.price||m.price||0);
+    const matId=mat?.id||'';
     const khoObj=(db.khoStock||{})[matId]||(db.khoStock||{})[m.matCode];
     const khoVal=khoObj!=null?(typeof khoObj==='object'?khoObj.tonKho:khoObj):0;
     const manualStock=(o.materialStock||{})[m.matCode];
     const khoStock=parseFloat(khoVal)||0;
     const stock=manualStock!==undefined?parseFloat(manualStock):khoStock;
-    const fromKho=manualStock===undefined&&khoStock>0;
     const toBuy=parseFloat(Math.max(0,total-stock).toFixed(3));
-    const mauSac=meta[m.matCode]?.mauSac||'';
-
-    // Tính giá: ưu tiên lấy từ siMatCode của từng màu → trung bình weighted
-    let price=parseFloat((db.materials||[]).find(x=>x.code===m.matCode)?.price||m.price||0);
-    let pricePerColor=null; // giá riêng theo từng màu
-    if(isSi){
-      const relevantColors=allColors.filter(c=>isSiPhu?(c.siType==='phu'):(c.siType!=='phu'));
-      // Giá từng màu dựa trên siMatCode đã chọn
-      pricePerColor=relevantColors.map(c=>{
-        const siCode=c.siMatCode||c.colorCode||m.matCode;
-        const siMat=(db.materials||[]).find(mm=>mm.code===siCode);
-        return parseFloat(siMat?.price||price);
-      });
-      const totalQtyRel=relevantColors.reduce((s,c)=>s+(c.qty||0),0);
-      if(totalQtyRel>0){
-        const weightedPrice=relevantColors.reduce((s,c,i)=>s+pricePerColor[i]*(c.qty||0),0)/totalQtyRel;
-        price=+weightedPrice.toFixed(0);
-      }
-      // Tính thành tiền chính xác theo từng màu
-      const ttByColor=byColor.map((qty,i)=>qty*(pricePerColor[i]||price));
-      var totalTT=ttByColor.reduce((s,v)=>s+v,0);
-    }
-
-    return{...m,dmEff,byColor,total,stock,toBuy,isSi,isSiChinh,isSiPhu,mauSac,fromKho,khoStock,price,pricePerColor,totalTT:totalTT||null};
+    const totalTT=null;
+    result.push({
+      ...m,dmEff,byColor,total,stock,toBuy,
+      isSi:false,isSiChinh:false,isSiPhu:false,
+      mauSac:meta[m.matCode]?.mauSac||'',
+      fromKho:manualStock===undefined&&khoStock>0,khoStock,price,
+      pricePerColor:null,totalTT
+    });
   });
+
+  return result;
 }
+
 
 // ── DANH SÁCH ĐƠN HÀNG ──
 function pOrders(){
@@ -2192,39 +2242,73 @@ function pOrderDetail(id){
       </tr></thead>
       <tbody>
         ${mList.map(m=>{
-          // Giá và thành tiền: dùng totalTT (per-color) nếu có, fallback toBuy*price
-          const tt=m.totalTT!=null?m.totalTT:m.toBuy*(m.price||0);
-          // Mã NPL hiển thị: nếu Si → lấy từ siMatCode của màu đầu tiên (nếu đồng nhất) hoặc matCode
-          let displayCode=m.matCode||'—';
-          let displayName=m.matName||'—';
-          if(m.isSi){
-            const siCodes=[...new Set(colorGroup.map(c=>c.siMatCode||c.colorCode||m.matCode).filter(Boolean))];
-            if(siCodes.length===1){
-              const siMat=(db.materials||[]).find(x=>x.code===siCodes[0]);
-              if(siMat){displayCode=siMat.code;displayName=siMat.name||displayName;}
-            }
+          if(!m.isSi){
+            // NPL thường: 1 hàng bình thường
+            const tt=m.totalTT!=null?m.totalTT:m.toBuy*(m.price||0);
+            return`<tr>
+              <td><span class="badge" style="background:${accentBg};color:${accent};font-size:10px">${m.matCode||'—'}</span></td>
+              <td style="font-weight:500;font-size:13px">${m.matName||'—'}</td>
+              <td style="color:var(--text2)">${m.unit||'—'}</td>
+              <td><input type="text" value="${m.mauSac||''}" placeholder="Màu..."
+                onchange="updMatMeta('${id}','${m.matCode}','mauSac',this.value)"
+                style="width:80px;background:transparent;border:1px solid var(--border2);border-radius:6px;padding:3px 6px;font-size:12px;font-family:inherit"></td>
+              <td class="num" style="color:var(--text2)">${m.dmEff.toFixed(3)}</td>
+              ${colorGroup.map(c=>`<td class="num">
+                <input type="number" value="${m.byColor[c._ci]>0?m.byColor[c._ci]:''}" min="0" step="0.001" placeholder="0"
+                  onchange="updSiQty('${id}','${m.matCode}',${c._ci},+this.value)"
+                  style="width:58px;text-align:right;border:1px solid var(--border2);border-radius:5px;font-size:12px;padding:2px 4px;font-family:inherit;background:transparent">
+              </td>`).join('')}
+              <td class="num" style="font-weight:700;color:#7c3aed;background:#faf5ff">${m.total>0?m.total.toFixed(2):'—'}</td>
+              <td class="num"><input type="number" value="${m.stock||''}" min="0" step="0.001" placeholder="0"
+                onchange="updOMatStock('${id}','${m.matCode}',+this.value)"
+                style="width:60px;padding:2px 5px;border:1px solid var(--border2);border-radius:6px;font-size:12px;text-align:right;font-family:inherit"></td>
+              <td class="num" style="font-weight:700;color:${m.toBuy>0?'var(--success)':'var(--text3)'};background:var(--success-bg)">${m.toBuy>0?m.toBuy.toFixed(2):'—'}</td>
+              <td class="num" style="background:#fffbeb;color:var(--warn)">${m.price>0?fmtN(m.price)+' ₫':'—'}</td>
+              <td class="num" style="background:#fef3c7;font-weight:700;color:#92400e">${tt>0?fmt(tt):'—'}</td>
+            </tr>`;
           }
-          return`<tr>
-            <td><span class="badge" style="background:${accentBg};color:${accent};font-size:10px">${displayCode}</span></td>
-            <td style="font-weight:500;font-size:13px">${displayName}</td>
-            <td style="color:var(--text2)">${m.unit||'—'}</td>
-            <td><input type="text" value="${m.mauSac||''}" placeholder="Màu..."
-              onchange="updMatMeta('${id}','${m.matCode}','mauSac',this.value)"
-              style="width:80px;background:transparent;border:1px solid var(--border2);border-radius:6px;padding:3px 6px;font-size:12px;font-family:inherit"></td>
-            <td class="num" style="color:var(--text2)">${m.dmEff.toFixed(3)}</td>
-            ${colorGroup.map(c=>`<td class="num">
-              <input type="number" value="${m.byColor[c._ci]>0?m.byColor[c._ci]:''}" min="0" step="0.001" placeholder="0"
-                onchange="updSiQty('${id}','${m.matCode}',${c._ci},+this.value)"
-                style="width:58px;text-align:right;border:1px solid var(--border2);border-radius:5px;font-size:12px;padding:2px 4px;font-family:inherit;background:transparent">
-            </td>`).join('')}
-            <td class="num" style="font-weight:700;color:#7c3aed;background:#faf5ff">${m.total>0?m.total.toFixed(2):'—'}</td>
-            <td class="num"><input type="number" value="${m.stock||''}" min="0" step="0.001" placeholder="0"
-              onchange="updOMatStock('${id}','${m.matCode}',+this.value)"
-              style="width:60px;padding:2px 5px;border:1px solid var(--border2);border-radius:6px;font-size:12px;text-align:right;font-family:inherit"></td>
-            <td class="num" style="font-weight:700;color:${m.toBuy>0?'var(--success)':'var(--text3)'};background:var(--success-bg)">${m.toBuy>0?m.toBuy.toFixed(2):'—'}</td>
-            <td class="num" style="background:#fffbeb;color:var(--warn)">${m.price>0?fmtN(m.price)+' ₫':'—'}</td>
-            <td class="num" style="background:#fef3c7;font-weight:700;color:#92400e">${tt>0?fmt(tt):'—'}</td>
-          </tr>`;}).join('')}
+          // Si: tách từng mã sỉ thành hàng riêng
+          const siGroups={};
+          colorGroup.forEach(c=>{
+            const key=c.siMatCode||c.colorCode||m.matCode;
+            if(!siGroups[key]) siGroups[key]=[];
+            siGroups[key].push(c);
+          });
+          return Object.entries(siGroups).map(([siCode,groupCols])=>{
+            const siMat=(db.materials||[]).find(x=>x.code===siCode)||{code:siCode,name:siCode};
+            const siPrice=parseFloat(siMat.price||0);
+            // Số lượng từng màu trong nhóm này
+            const groupQtys=colorGroup.map(c=>{
+              const cCode=c.siMatCode||c.colorCode||m.matCode;
+              return cCode===siCode?(m.byColor[c._ci]||0):null;
+            });
+            const groupTotal=groupQtys.reduce((s,v)=>s+(v||0),0);
+            const groupTT=groupQtys.reduce((s,v)=>s+(v||0)*siPrice,0);
+            const groupToBuy=Math.max(0,groupTotal);
+            return`<tr>
+              <td><span class="badge" style="background:${accentBg};color:${accent};font-size:10px">${siMat.code}</span></td>
+              <td style="font-weight:600;font-size:13px">${siMat.name||siCode}</td>
+              <td style="color:var(--text2)">${m.unit||'—'}</td>
+              <td><input type="text" value="${m.mauSac||''}" placeholder="Màu..."
+                onchange="updMatMeta('${id}','${m.matCode}','mauSac',this.value)"
+                style="width:80px;background:transparent;border:1px solid var(--border2);border-radius:6px;padding:3px 6px;font-size:12px;font-family:inherit"></td>
+              <td class="num" style="color:var(--text2)">${m.dmEff.toFixed(3)}</td>
+              ${colorGroup.map((c,i)=>{
+                const cCode=c.siMatCode||c.colorCode||m.matCode;
+                const qty=groupQtys[i];
+                const isGroup=cCode===siCode;
+                return`<td class="num" style="${!isGroup?'color:var(--text3);background:#f8f8f8':''}">
+                  ${isGroup?(qty>0?qty.toFixed(2):'0'):'—'}
+                </td>`;
+              }).join('')}
+              <td class="num" style="font-weight:700;color:#7c3aed;background:#faf5ff">${groupTotal>0?groupTotal.toFixed(2):'—'}</td>
+              <td class="num" style="color:var(--text3)">—</td>
+              <td class="num" style="font-weight:700;color:${groupToBuy>0?'var(--success)':'var(--text3)'};background:var(--success-bg)">${groupToBuy>0?groupToBuy.toFixed(2):'—'}</td>
+              <td class="num" style="background:#fffbeb;color:var(--warn);font-weight:600">${siPrice>0?fmtN(siPrice)+' ₫':'—'}</td>
+              <td class="num" style="background:#fef3c7;font-weight:700;color:#92400e">${groupTT>0?fmt(groupTT):'—'}</td>
+            </tr>`;
+          }).join('');
+        }).join('')}
         ${totalRow(mList,5,colorGroup.length)}
       </tbody>
     </table></div>`;
