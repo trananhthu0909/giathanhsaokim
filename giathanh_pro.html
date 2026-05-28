@@ -1989,22 +1989,27 @@ function calcOrderMats(o){
     const mauSac=meta[m.matCode]?.mauSac||'';
 
     // Tính giá: ưu tiên lấy từ siMatCode của từng màu → trung bình weighted
-    // Nếu mọi màu cùng siMatCode → dùng giá đó; khác nhau → trung bình theo SL
     let price=parseFloat((db.materials||[]).find(x=>x.code===m.matCode)?.price||m.price||0);
+    let pricePerColor=null; // giá riêng theo từng màu
     if(isSi){
       const relevantColors=allColors.filter(c=>isSiPhu?(c.siType==='phu'):(c.siType!=='phu'));
-      const codesWithQty=relevantColors.map(c=>({code:c.siMatCode||c.colorCode||m.matCode,qty:c.qty||0}));
-      const totalQtyForPrice=codesWithQty.reduce((s,x)=>s+x.qty,0);
-      if(totalQtyForPrice>0){
-        const weightedPrice=codesWithQty.reduce((s,x)=>{
-          const mat=(db.materials||[]).find(mm=>mm.code===x.code);
-          return s+(parseFloat(mat?.price||price)*x.qty);
-        },0)/totalQtyForPrice;
+      // Giá từng màu dựa trên siMatCode đã chọn
+      pricePerColor=relevantColors.map(c=>{
+        const siCode=c.siMatCode||c.colorCode||m.matCode;
+        const siMat=(db.materials||[]).find(mm=>mm.code===siCode);
+        return parseFloat(siMat?.price||price);
+      });
+      const totalQtyRel=relevantColors.reduce((s,c)=>s+(c.qty||0),0);
+      if(totalQtyRel>0){
+        const weightedPrice=relevantColors.reduce((s,c,i)=>s+pricePerColor[i]*(c.qty||0),0)/totalQtyRel;
         price=+weightedPrice.toFixed(0);
       }
+      // Tính thành tiền chính xác theo từng màu
+      const ttByColor=byColor.map((qty,i)=>qty*(pricePerColor[i]||price));
+      var totalTT=ttByColor.reduce((s,v)=>s+v,0);
     }
 
-    return{...m,dmEff,byColor,total,stock,toBuy,isSi,isSiChinh,isSiPhu,mauSac,fromKho,khoStock,price};
+    return{...m,dmEff,byColor,total,stock,toBuy,isSi,isSiChinh,isSiPhu,mauSac,fromKho,khoStock,price,pricePerColor,totalTT:totalTT||null};
   });
 }
 
@@ -2187,10 +2192,21 @@ function pOrderDetail(id){
       </tr></thead>
       <tbody>
         ${mList.map(m=>{
-          const tt=m.toBuy*(m.price||0);
+          // Giá và thành tiền: dùng totalTT (per-color) nếu có, fallback toBuy*price
+          const tt=m.totalTT!=null?m.totalTT:m.toBuy*(m.price||0);
+          // Mã NPL hiển thị: nếu Si → lấy từ siMatCode của màu đầu tiên (nếu đồng nhất) hoặc matCode
+          let displayCode=m.matCode||'—';
+          let displayName=m.matName||'—';
+          if(m.isSi){
+            const siCodes=[...new Set(colorGroup.map(c=>c.siMatCode||c.colorCode||m.matCode).filter(Boolean))];
+            if(siCodes.length===1){
+              const siMat=(db.materials||[]).find(x=>x.code===siCodes[0]);
+              if(siMat){displayCode=siMat.code;displayName=siMat.name||displayName;}
+            }
+          }
           return`<tr>
-            <td><span class="badge" style="background:${accentBg};color:${accent};font-size:10px">${m.matCode||'—'}</span></td>
-            <td style="font-weight:500;font-size:13px">${m.matName||'—'}</td>
+            <td><span class="badge" style="background:${accentBg};color:${accent};font-size:10px">${displayCode}</span></td>
+            <td style="font-weight:500;font-size:13px">${displayName}</td>
             <td style="color:var(--text2)">${m.unit||'—'}</td>
             <td><input type="text" value="${m.mauSac||''}" placeholder="Màu..."
               onchange="updMatMeta('${id}','${m.matCode}','mauSac',this.value)"
