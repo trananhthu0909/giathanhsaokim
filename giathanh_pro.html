@@ -179,6 +179,7 @@ table.dtbl{width:100%;border-collapse:collapse}
   <nav class="s-nav">
     <div class="n-sec">Tổng quan</div>
     <div class="n-item" id="nav-dashboard" onclick="go('dashboard')"><i class="ti ti-layout-dashboard"></i>Tổng quan</div>
+    <div class="n-item" id="nav-report" onclick="go('report')"><i class="ti ti-chart-bar"></i>Báo cáo tổng hợp</div>
     <div class="n-sec">Quản lý</div>
     <div class="n-item" id="nav-products" onclick="go('products')"><i class="ti ti-tag"></i>Mã hàng thành phẩm</div>
     <div class="n-item" id="nav-orders" onclick="go('orders')"><i class="ti ti-clipboard-list"></i>Đơn hàng sản xuất</div>
@@ -293,6 +294,7 @@ function render(){
   else if(st.page==='orders') el.innerHTML=pOrders();
   else if(st.page==='order-detail') el.innerHTML=pOrderDetail(st.pid);
   else if(st.page==='sync') el.innerHTML=pSync();
+  else if(st.page==='report') {el.innerHTML=pReport(st.pid);bindReport();}
   updateReminders();
 }
 
@@ -332,6 +334,157 @@ function calc(p){
     actProfit,actPct,actVsSug,actStatus,
     fixedCost,breakEven,beRevenue,marginUnit};
 }
+
+// ── BÁO CÁO TỔNG HỢP ──
+function pReport(yr){
+  const year=parseInt(yr)||new Date().getFullYear();
+  const months=['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
+  const allYears=[...new Set((db.orders||[]).map(o=>new Date(o.deliveryDate||o.createdAt||'').getFullYear()).filter(y=>y>2000))].sort((a,b)=>b-a);
+  if(!allYears.includes(year)) allYears.unshift(year);
+
+  // Lấy đơn theo năm
+  const orders=(db.orders||[]).filter(o=>{
+    const d=new Date(o.deliveryDate||o.createdAt||'');
+    return d.getFullYear()===year;
+  });
+
+  // 1. SL sản xuất theo tháng (Sỉ chính)
+  const slMonth=new Array(12).fill(0);
+  orders.forEach(o=>{
+    const m=new Date(o.deliveryDate||o.createdAt||'').getMonth();
+    (o.colors||[]).filter(c=>(c.siType||'chinh')!=='phu').forEach(c=>slMonth[m]+=(c.qty||0));
+  });
+
+  // 2. SL theo xưởng theo tháng
+  const facSet=new Set();
+  orders.forEach(o=>(o.processes||[]).forEach(p=>p.facName&&facSet.add(p.facName)));
+  const facList=[...facSet];
+  const slFac={};
+  facList.forEach(f=>slFac[f]=new Array(12).fill(0));
+  orders.forEach(o=>{
+    const m=new Date(o.deliveryDate||o.createdAt||'').getMonth();
+    const sl=(o.colors||[]).filter(c=>(c.siType||'chinh')!=='phu').reduce((s,c)=>s+(c.qty||0),0);
+    const facs=[...new Set((o.processes||[]).map(p=>p.facName).filter(Boolean))];
+    if(facs.length) facs.forEach(f=>{ if(slFac[f]) slFac[f][m]+=Math.round(sl/facs.length); });
+    else if(sl>0){ if(!slFac['Chưa xác định']) slFac['Chưa xác định']=new Array(12).fill(0); slFac['Chưa xác định'][m]+=sl; }
+  });
+
+  // 3. Doanh thu thực tế theo tháng
+  const dtMonth=new Array(12).fill(0);
+  orders.forEach(o=>{
+    const m=new Date(o.deliveryDate||o.createdAt||'').getMonth();
+    dtMonth[m]+=parseFloat(o.actualRevenue||0);
+  });
+
+  // 4. Lợi nhuận thực tế theo tháng
+  const lnMonth=new Array(12).fill(0);
+  orders.forEach(o=>{
+    const m=new Date(o.deliveryDate||o.createdAt||'').getMonth();
+    lnMonth[m]+=parseFloat(o.actualProfit||o.realProfit||0);
+  });
+
+  // SVG bar chart helper
+  function mkBar(data,labels,colors,opts={}){
+    const W=opts.w||560,H=opts.h||200,pad={t:20,r:12,b:36,l:opts.lpad||52};
+    const n=data[0].length,series=data.length;
+    const max=Math.max(...data.flat().map(Math.abs),1);
+    const gW=W-pad.l-pad.r,gH=H-pad.t-pad.b;
+    const barW=Math.floor(gW/n*0.7/series);
+    const gap=Math.floor(gW/n*0.3/2);
+    let bars='',xLabels='',yLabels='';
+    // Y-axis labels
+    for(let i=0;i<=4;i++){
+      const v=max*i/4;
+      const y=H-pad.b-gH*i/4;
+      yLabels+=`<text x="${pad.l-5}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--text3)">${opts.fmt?opts.fmt(v):Math.round(v).toLocaleString('vi-VN')}</text>
+      <line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="var(--border)" stroke-width="${i===0?1.5:.5}"/>`;
+    }
+    // Bars + x-labels
+    for(let i=0;i<n;i++){
+      const baseX=pad.l+i*(gW/n)+gap;
+      data.forEach((d,si)=>{
+        const v=d[i]||0;
+        const bH=Math.max(0,gH*Math.abs(v)/max);
+        const bX=baseX+si*barW;
+        const bY=H-pad.b-bH;
+        bars+=`<rect x="${bX}" y="${bY}" width="${barW-1}" height="${bH}" fill="${colors[si]||'var(--accent)'}" rx="2" opacity=".88">
+          <title>${labels[i]}: ${opts.fmt?opts.fmt(v):v.toLocaleString('vi-VN')}</title></rect>`;
+      });
+      xLabels+=`<text x="${baseX+barW*series/2}" y="${H-pad.b+14}" text-anchor="middle" font-size="10" fill="var(--text2)">${labels[i]}</text>`;
+    }
+    return`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px">${yLabels}${bars}${xLabels}</svg>`;
+  }
+
+  // Legend helper
+  function mkLegend(names,colors){
+    return names.map((n,i)=>`<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;font-size:12px;color:var(--text2)">
+      <span style="width:12px;height:12px;border-radius:3px;background:${colors[i]};display:inline-block"></span>${n}</span>`).join('');
+  }
+
+  const facColors=['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#f97316'];
+  const slFacData=facList.map(f=>slFac[f]||new Array(12).fill(0));
+  const hasFac=facList.length>0;
+
+  return`<div class="page-hdr">
+    <div><div class="page-title"><i class="ti ti-chart-bar" style="color:var(--accent)"></i> Báo cáo tổng hợp</div>
+    <div class="page-sub">Thống kê theo đơn hàng sản xuất ${year}</div></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <select class="fi" onchange="go('report',this.value)" style="font-size:13px;padding:6px 12px;font-weight:600">
+        ${allYears.map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;padding-bottom:32px">
+
+    <!-- 1. SL sản xuất theo tháng -->
+    <div class="card" style="padding:20px 20px 14px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--text)">
+        <i class="ti ti-box" style="color:#6366f1"></i> Sản lượng sản xuất theo tháng
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:14px">Tổng SP Sỉ chính · ĐVT: sp</div>
+      ${mkBar([slMonth],months,['#6366f1'],{lpad:60,fmt:v=>v.toLocaleString('vi-VN')})}
+      <div style="text-align:center;margin-top:8px;font-size:12px;color:var(--text2)">
+        Tổng cả năm: <b style="color:#6366f1">${slMonth.reduce((s,v)=>s+v,0).toLocaleString('vi-VN')} sp</b>
+      </div>
+    </div>
+
+    <!-- 2. SL theo xưởng theo tháng -->
+    <div class="card" style="padding:20px 20px 14px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--text)">
+        <i class="ti ti-building-factory-2" style="color:#f59e0b"></i> Sản lượng theo xưởng
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${hasFac?mkLegend(facList,facColors):'Chưa có dữ liệu xưởng'}</div>
+      ${hasFac?mkBar(slFacData,months,facColors,{lpad:60,fmt:v=>v.toLocaleString('vi-VN')}):'<div style="height:140px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px">Chưa có đơn hàng</div>'}
+    </div>
+
+    <!-- 3. Doanh thu thực tế theo tháng -->
+    <div class="card" style="padding:20px 20px 14px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--text)">
+        <i class="ti ti-cash" style="color:#10b981"></i> Doanh thu thực tế theo tháng
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:14px">Giá bán thực tế đã nhập · ĐVT: VNĐ</div>
+      ${mkBar([dtMonth],months,['#10b981'],{lpad:72,fmt:v=>v>=1e6?(v/1e6).toFixed(1)+'tr':v.toLocaleString('vi-VN')})}
+      <div style="text-align:center;margin-top:8px;font-size:12px;color:var(--text2)">
+        Tổng cả năm: <b style="color:#10b981">${fmt(dtMonth.reduce((s,v)=>s+v,0))}</b>
+      </div>
+    </div>
+
+    <!-- 4. Lợi nhuận thực tế theo tháng -->
+    <div class="card" style="padding:20px 20px 14px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--text)">
+        <i class="ti ti-trending-up" style="color:#8b5cf6"></i> Lợi nhuận thực tế theo tháng
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:14px">Lợi nhuận sau khi nhập giá thực tế · ĐVT: VNĐ</div>
+      ${mkBar([lnMonth],months,['#8b5cf6'],{lpad:72,fmt:v=>v>=1e6?(v/1e6).toFixed(1)+'tr':v.toLocaleString('vi-VN')})}
+      <div style="text-align:center;margin-top:8px;font-size:12px;color:var(--text2)">
+        Tổng cả năm: <b style="color:#8b5cf6">${fmt(lnMonth.reduce((s,v)=>s+v,0))}</b>
+      </div>
+    </div>
+
+  </div>`;
+}
+function bindReport(){}
 
 // ── DASHBOARD ──
 function pDash(){
@@ -1971,8 +2124,10 @@ function calcOrderMats(o){
     let siMat=mats.find(x=>x.code===siCode);
     if(!siMat) siMat=mats.find(x=>(x.name||'').toLowerCase()===siCode.toLowerCase());
     if(!siMat) siMat={code:siCode,name:siCode,price:0,unit:''};
-    const realCode=siMat.code||siCode; // mã thực tế (VD: S008)
-    const dmEff=(bomRef?.dm||0)*(1+(bomRef?.hh||0)/100);
+    const realCode=siMat.code||siCode;
+    // Tìm BOM item riêng cho siCode này (ưu tiên), fallback về bomRef chung
+    const specificBom=(p.bom||[]).find(b=>b.matCode===realCode)||bomRef;
+    const dmEff=(specificBom?.dm||0)*(1+(specificBom?.hh||0)/100);
     const byColor=allColors.map((c,ci)=>{
       const colorSiType=c.siType||'chinh';
       if(isSiPhu&&colorSiType!=='phu') return 0;
@@ -2340,7 +2495,11 @@ function pOrderDetail(id){
           <td><span class="badge b-green" style="font-size:10px">${m.matCode||'—'}</span></td>
           <td style="font-weight:500;font-size:13px">${m.matName||'—'}</td>
           <td style="color:var(--text2)">${m.unit||'—'}</td>
-          <td class="num" style="color:var(--text2)">${m.dmEff.toFixed(3)}</td>
+          <td class="num">
+            <input type="number" value="${m.dm||m.dmEff||''}" min="0" step="0.001" placeholder="0.000"
+              onchange="updBOMDm('${id}','${m.matCode}',+this.value)"
+              style="width:68px;text-align:right;border:1px solid var(--border2);border-radius:5px;font-size:12px;padding:2px 4px;font-family:inherit;background:var(--bg)">
+          </td>
           ${colorsChinh2.map(c=>`<td class="num" style="font-size:12px">${m.byColor[c._ci]>0?m.byColor[c._ci].toFixed(2):'—'}</td>`).join('')}
           <td class="num" style="font-weight:700;color:#7c3aed;background:#faf5ff">${m.total>0?m.total.toFixed(2):'—'}</td>
           <td class="num"><input type="number" value="${m.stock||''}" min="0" step="0.001" placeholder="0"
@@ -2780,21 +2939,22 @@ function pickSiMat(oid,ci,matCode){
 }
 
 function updBOMDm(oid,matCode,val){
-  // Lưu ĐM vào BOM sản phẩm (tìm theo matCode hoặc tên)
   const o=db.orders.find(x=>x.id===oid); if(!o) return;
   const p=GP(o.productId); if(!p) return;
-  // Tìm BOM item: theo code hoặc tìm material theo tên rồi match
+  if(!p.bom) p.bom=[];
+  // Tìm BOM item theo matCode
   let bItem=p.bom.find(b=>b.matCode===matCode);
-  if(!bItem){
-    // Tìm material thực để match với BOM
+  if(bItem){
+    bItem.dm=val;
+  } else {
+    // Thêm mới: xác định siType dựa trên material
     const mat=(db.materials||[]).find(x=>x.code===matCode);
-    if(mat) bItem=p.bom.find(b=>b.matCode===mat.code||(db.materials||[]).find(m=>m.code===b.matCode)?.name===mat.name);
-  }
-  if(bItem){bItem.dm=val;}
-  else{
-    // Nếu BOM chưa có item này, thêm mới
-    const mat=(db.materials||[]).find(x=>x.code===matCode);
-    p.bom.push({matCode,matName:mat?.name||matCode,unit:mat?.unit||'',dm:val,hh:0,price:mat?.price||0,siType:'chinh'});
+    const isS=(matCode||'').toUpperCase().startsWith('S');
+    // Kiểm tra xem color nào dùng matCode này để xác định chinh/phu
+    const o2=db.orders.find(x=>x.id===oid);
+    const isPhu=(o2?.colors||[]).some(c=>(c.siMatCode===matCode||c.colorCode===matCode)&&c.siType==='phu');
+    const siType=isS?(isPhu?'phu':'chinh'):'pk';
+    p.bom.push({matCode,matName:mat?.name||matCode,unit:mat?.unit||'',dm:val,hh:0,price:mat?.price||0,siType});
   }
   saveDB();
   go('order-detail',oid);
