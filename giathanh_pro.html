@@ -2158,14 +2158,6 @@ function pOrderDetail(id){
     const detected=c.colorName?detectColor(c.colorName):null;
     return`<tr>
       <td style="text-align:center;color:var(--text2);font-size:12px;width:36px">${ci+1}</td>
-      <td style="width:80px;padding:8px;text-align:center;vertical-align:middle">
-        <label for="ch-${id}-${ci}" style="cursor:pointer;display:inline-block" title="Nhấn để chỉnh màu">
-          <div id="sw-${id}-${ci}" style="width:58px;height:52px;border-radius:10px;background:${hex};border:2px solid rgba(0,0,0,.12);margin:0 auto;display:flex;align-items:center;justify-content:center;transition:background .25s;box-shadow:0 2px 6px rgba(0,0,0,.15)">
-            <i class="ti ti-pencil no-print" style="font-size:13px;color:${textColor};opacity:.45"></i>
-          </div>
-          <input type="color" id="ch-${id}-${ci}" value="${hex}" onchange="applyColorHex('${id}',${ci},this.value)" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none">
-        </label>
-      </td>
       <td style="min-width:180px;padding:6px 10px;vertical-align:middle">
         ${renderNPLDropdown(id,ci,c,p,false)}
       </td>
@@ -2183,7 +2175,7 @@ function pOrderDetail(id){
   };
 
   const colorThead=`<table class="dtbl2" style="table-layout:auto"><thead><tr>
-    <th style="width:36px">#</th><th style="width:80px;text-align:center">Ô màu</th>
+    <th style="width:36px">#</th>
     <th style="min-width:180px">NPL sỉ (Mã sỉ)</th><th style="min-width:150px">Tên màu</th>
     <th class="num" style="min-width:110px">SL sản xuất</th><th class="no-print" style="width:36px"></th>
   </tr></thead>`;
@@ -2233,81 +2225,71 @@ function pOrderDetail(id){
   const mkSiTable=(mList,colorGroup,accent,accentBg)=>{
     if(!mList.length) return`<div style="padding:10px 16px;font-size:12px;color:var(--text3)">Chưa có NPL nào trong nhóm này.</div>`;
     return`<div class="tbl-wrap">
-    <table class="dtbl mat-matrix" style="min-width:${600+colorGroup.length*90}px">
+    <table class="dtbl mat-matrix" style="min-width:${550+colorGroup.length*90}px">
       <thead><tr>
         <th>Mã NPL</th><th>Tên NPL</th><th>ĐVT</th>
-        <th style="min-width:90px">Màu sắc</th>
-        <th class="num">ĐM/sp</th>
+        <th style="min-width:85px">Màu sắc</th>
+        <th class="num" style="min-width:80px">ĐM/sp</th>
         ${mkColorThs(colorGroup)}${tailThs}
       </tr></thead>
       <tbody>
         ${mList.map(m=>{
-          if(!m.isSi){
-            // NPL thường: 1 hàng bình thường
-            const tt=m.totalTT!=null?m.totalTT:m.toBuy*(m.price||0);
+          // Mỗi m đã là 1 nhóm siCode → render thẳng 1 hàng
+          const tt=m.totalTT!=null?m.totalTT:m.toBuy*(m.price||0);
+          if(m.isSi){
             return`<tr>
               <td><span class="badge" style="background:${accentBg};color:${accent};font-size:10px">${m.matCode||'—'}</span></td>
-              <td style="font-weight:500;font-size:13px">${m.matName||'—'}</td>
+              <td style="font-weight:600;font-size:13px">${m.matName||'—'}</td>
               <td style="color:var(--text2)">${m.unit||'—'}</td>
               <td><input type="text" value="${m.mauSac||''}" placeholder="Màu..."
                 onchange="updMatMeta('${id}','${m.matCode}','mauSac',this.value)"
-                style="width:80px;background:transparent;border:1px solid var(--border2);border-radius:6px;padding:3px 6px;font-size:12px;font-family:inherit"></td>
-              <td class="num" style="color:var(--text2)">${m.dmEff.toFixed(3)}</td>
-              ${colorGroup.map(c=>`<td class="num">
-                <input type="number" value="${m.byColor[c._ci]>0?m.byColor[c._ci]:''}" min="0" step="0.001" placeholder="0"
-                  onchange="updSiQty('${id}','${m.matCode}',${c._ci},+this.value)"
-                  style="width:58px;text-align:right;border:1px solid var(--border2);border-radius:5px;font-size:12px;padding:2px 4px;font-family:inherit;background:transparent">
-              </td>`).join('')}
+                style="width:78px;background:transparent;border:1px solid var(--border2);border-radius:6px;padding:3px 6px;font-size:12px;font-family:inherit"></td>
+              <td class="num">
+                <input type="number" value="${m.dm||m.dmEff||''}" min="0" step="0.001" placeholder="0.000"
+                  onchange="updBOMDm('${id}','${m.matCode}',+this.value)"
+                  style="width:68px;text-align:right;border:1px solid var(--border2);border-radius:5px;font-size:12px;padding:2px 4px;font-family:inherit;background:var(--bg)">
+              </td>
+              ${colorGroup.map(c=>{
+                const qty=m.byColor[c._ci];
+                return`<td class="num" style="${qty<=0?'color:var(--text3)':''}">
+                  ${qty>0?qty.toFixed(2):'—'}
+                </td>`;
+              }).join('')}
               <td class="num" style="font-weight:700;color:#7c3aed;background:#faf5ff">${m.total>0?m.total.toFixed(2):'—'}</td>
               <td class="num"><input type="number" value="${m.stock||''}" min="0" step="0.001" placeholder="0"
                 onchange="updOMatStock('${id}','${m.matCode}',+this.value)"
                 style="width:60px;padding:2px 5px;border:1px solid var(--border2);border-radius:6px;font-size:12px;text-align:right;font-family:inherit"></td>
               <td class="num" style="font-weight:700;color:${m.toBuy>0?'var(--success)':'var(--text3)'};background:var(--success-bg)">${m.toBuy>0?m.toBuy.toFixed(2):'—'}</td>
-              <td class="num" style="background:#fffbeb;color:var(--warn)">${m.price>0?fmtN(m.price)+' ₫':'—'}</td>
+              <td class="num" style="background:#fffbeb;color:var(--warn);font-weight:600">${m.price>0?fmtN(m.price)+' ₫':'—'}</td>
               <td class="num" style="background:#fef3c7;font-weight:700;color:#92400e">${tt>0?fmt(tt):'—'}</td>
             </tr>`;
           }
-          // Si: tách từng mã sỉ thành hàng riêng
-          const siGroups={};
-          colorGroup.forEach(c=>{
-            const key=c.siMatCode||c.colorCode||m.matCode;
-            if(!siGroups[key]) siGroups[key]=[];
-            siGroups[key].push(c);
-          });
-          return Object.entries(siGroups).map(([siCode,groupCols])=>{
-            const siMat=(db.materials||[]).find(x=>x.code===siCode)||{code:siCode,name:siCode};
-            const siPrice=parseFloat(siMat.price||0);
-            // Số lượng từng màu trong nhóm này
-            const groupQtys=colorGroup.map(c=>{
-              const cCode=c.siMatCode||c.colorCode||m.matCode;
-              return cCode===siCode?(m.byColor[c._ci]||0):null;
-            });
-            const groupTotal=groupQtys.reduce((s,v)=>s+(v||0),0);
-            const groupTT=groupQtys.reduce((s,v)=>s+(v||0)*siPrice,0);
-            const groupToBuy=Math.max(0,groupTotal);
-            return`<tr>
-              <td><span class="badge" style="background:${accentBg};color:${accent};font-size:10px">${siMat.code}</span></td>
-              <td style="font-weight:600;font-size:13px">${siMat.name||siCode}</td>
-              <td style="color:var(--text2)">${m.unit||'—'}</td>
-              <td><input type="text" value="${m.mauSac||''}" placeholder="Màu..."
-                onchange="updMatMeta('${id}','${m.matCode}','mauSac',this.value)"
-                style="width:80px;background:transparent;border:1px solid var(--border2);border-radius:6px;padding:3px 6px;font-size:12px;font-family:inherit"></td>
-              <td class="num" style="color:var(--text2)">${m.dmEff.toFixed(3)}</td>
-              ${colorGroup.map((c,i)=>{
-                const cCode=c.siMatCode||c.colorCode||m.matCode;
-                const qty=groupQtys[i];
-                const isGroup=cCode===siCode;
-                return`<td class="num" style="${!isGroup?'color:var(--text3);background:#f8f8f8':''}">
-                  ${isGroup?(qty>0?qty.toFixed(2):'0'):'—'}
-                </td>`;
-              }).join('')}
-              <td class="num" style="font-weight:700;color:#7c3aed;background:#faf5ff">${groupTotal>0?groupTotal.toFixed(2):'—'}</td>
-              <td class="num" style="color:var(--text3)">—</td>
-              <td class="num" style="font-weight:700;color:${groupToBuy>0?'var(--success)':'var(--text3)'};background:var(--success-bg)">${groupToBuy>0?groupToBuy.toFixed(2):'—'}</td>
-              <td class="num" style="background:#fffbeb;color:var(--warn);font-weight:600">${siPrice>0?fmtN(siPrice)+' ₫':'—'}</td>
-              <td class="num" style="background:#fef3c7;font-weight:700;color:#92400e">${groupTT>0?fmt(groupTT):'—'}</td>
-            </tr>`;
-          }).join('');
+          // NPL/PK bình thường
+          return`<tr>
+            <td><span class="badge" style="background:${accentBg};color:${accent};font-size:10px">${m.matCode||'—'}</span></td>
+            <td style="font-weight:500;font-size:13px">${m.matName||'—'}</td>
+            <td style="color:var(--text2)">${m.unit||'—'}</td>
+            <td><input type="text" value="${m.mauSac||''}" placeholder="Màu..."
+              onchange="updMatMeta('${id}','${m.matCode}','mauSac',this.value)"
+              style="width:78px;background:transparent;border:1px solid var(--border2);border-radius:6px;padding:3px 6px;font-size:12px;font-family:inherit"></td>
+            <td class="num">
+              <input type="number" value="${m.dm||m.dmEff||''}" min="0" step="0.001" placeholder="0.000"
+                onchange="updBOMDm('${id}','${m.matCode}',+this.value)"
+                style="width:68px;text-align:right;border:1px solid var(--border2);border-radius:5px;font-size:12px;padding:2px 4px;font-family:inherit;background:var(--bg)">
+            </td>
+            ${colorGroup.map(c=>`<td class="num">
+              <input type="number" value="${m.byColor[c._ci]>0?m.byColor[c._ci]:''}" min="0" step="0.001" placeholder="0"
+                onchange="updSiQty('${id}','${m.matCode}',${c._ci},+this.value)"
+                style="width:58px;text-align:right;border:1px solid var(--border2);border-radius:5px;font-size:12px;padding:2px 4px;font-family:inherit;background:transparent">
+            </td>`).join('')}
+            <td class="num" style="font-weight:700;color:#7c3aed;background:#faf5ff">${m.total>0?m.total.toFixed(2):'—'}</td>
+            <td class="num"><input type="number" value="${m.stock||''}" min="0" step="0.001" placeholder="0"
+              onchange="updOMatStock('${id}','${m.matCode}',+this.value)"
+              style="width:60px;padding:2px 5px;border:1px solid var(--border2);border-radius:6px;font-size:12px;text-align:right;font-family:inherit"></td>
+            <td class="num" style="font-weight:700;color:${m.toBuy>0?'var(--success)':'var(--text3)'};background:var(--success-bg)">${m.toBuy>0?m.toBuy.toFixed(2):'—'}</td>
+            <td class="num" style="background:#fffbeb;color:var(--warn)">${m.price>0?fmtN(m.price)+' ₫':'—'}</td>
+            <td class="num" style="background:#fef3c7;font-weight:700;color:#92400e">${tt>0?fmt(tt):'—'}</td>
+          </tr>`;
         }).join('')}
         ${totalRow(mList,5,colorGroup.length)}
       </tbody>
@@ -2467,7 +2449,6 @@ function pOrderDetail(id){
         ${colorsChinh.length ? `
         <table style="width:100%;border-collapse:collapse">
           <thead><tr style="background:#ffeaea">
-            <th style="padding:6px 8px;font-size:10px;color:#e11d48;font-weight:600;text-align:center;width:52px">Ô màu</th>
             <th style="padding:6px 8px;font-size:10px;color:#e11d48;font-weight:600;min-width:80px">Mã sỉ</th>
             <th style="padding:6px 8px;font-size:10px;color:#e11d48;font-weight:600">Tên màu</th>
             <th style="padding:6px 8px;font-size:10px;color:#e11d48;font-weight:600;text-align:right;min-width:80px">SL sản xuất</th>
@@ -2479,14 +2460,6 @@ function pOrderDetail(id){
             const tc=(0.299*r2+0.587*g2+0.114*b2)/255>0.55?'#1a1a1a':'#fff';
             const det=c.colorName?detectColor(c.colorName):null;
             return`<tr style="border-bottom:1px solid #fca5a533">
-              <td style="padding:6px 8px;text-align:center">
-                <label for="ch-${id}-${ci}" style="cursor:pointer">
-                  <div id="sw-${id}-${ci}" style="width:40px;height:36px;border-radius:8px;background:${hex};border:1.5px solid rgba(0,0,0,.12);margin:0 auto;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.12)">
-                    <i class="ti ti-pencil no-print" style="font-size:11px;color:${tc};opacity:.5"></i>
-                  </div>
-                  <input type="color" id="ch-${id}-${ci}" value="${hex}" onchange="applyColorHex('${id}',${ci},this.value)" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none">
-                </label>
-              </td>
               <td style="padding:4px 6px;min-width:150px">${renderNPLDropdown(id,ci,c,p,true)}</td>
               <td style="padding:6px 8px">
                 <input class="dtbl2-in" value="${c.colorName||''}" placeholder="Tên màu..." oninput="autoColorHex('${id}',${ci},this.value)" style="font-size:12px;width:100%">
@@ -2518,7 +2491,6 @@ function pOrderDetail(id){
         ${colorsPhu.length ? `
         <table style="width:100%;border-collapse:collapse">
           <thead><tr style="background:#fef3c7">
-            <th style="padding:6px 8px;font-size:10px;color:#d97706;font-weight:600;text-align:center;width:52px">Ô màu</th>
             <th style="padding:6px 8px;font-size:10px;color:#d97706;font-weight:600;min-width:80px">Mã sỉ</th>
             <th style="padding:6px 8px;font-size:10px;color:#d97706;font-weight:600">Tên màu</th>
             <th style="padding:6px 8px;font-size:10px;color:#d97706;font-weight:600;text-align:right;min-width:80px">SL sản xuất</th>
@@ -2530,14 +2502,6 @@ function pOrderDetail(id){
             const tc=(0.299*r2+0.587*g2+0.114*b2)/255>0.55?'#1a1a1a':'#fff';
             const det=c.colorName?detectColor(c.colorName):null;
             return`<tr style="border-bottom:1px solid #fcd34d33">
-              <td style="padding:6px 8px;text-align:center">
-                <label for="ch-${id}-${ci}" style="cursor:pointer">
-                  <div id="sw-${id}-${ci}" style="width:40px;height:36px;border-radius:8px;background:${hex};border:1.5px solid rgba(0,0,0,.12);margin:0 auto;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.12)">
-                    <i class="ti ti-pencil no-print" style="font-size:11px;color:${tc};opacity:.5"></i>
-                  </div>
-                  <input type="color" id="ch-${id}-${ci}" value="${hex}" onchange="applyColorHex('${id}',${ci},this.value)" style="width:0;height:0;opacity:0;position:absolute;pointer-events:none">
-                </label>
-              </td>
               <td style="padding:4px 6px;min-width:170px">
                 ${renderNPLDropdown(id,ci,c,p,true)}
               </td>
@@ -2810,6 +2774,27 @@ function pickSiMat(oid,ci,matCode){
   c.colorCode=matCode;
   saveDB();
   closeM();
+  go('order-detail',oid);
+}
+
+function updBOMDm(oid,matCode,val){
+  // Lưu ĐM vào BOM sản phẩm (tìm theo matCode hoặc tên)
+  const o=db.orders.find(x=>x.id===oid); if(!o) return;
+  const p=GP(o.productId); if(!p) return;
+  // Tìm BOM item: theo code hoặc tìm material theo tên rồi match
+  let bItem=p.bom.find(b=>b.matCode===matCode);
+  if(!bItem){
+    // Tìm material thực để match với BOM
+    const mat=(db.materials||[]).find(x=>x.code===matCode);
+    if(mat) bItem=p.bom.find(b=>b.matCode===mat.code||(db.materials||[]).find(m=>m.code===b.matCode)?.name===mat.name);
+  }
+  if(bItem){bItem.dm=val;}
+  else{
+    // Nếu BOM chưa có item này, thêm mới
+    const mat=(db.materials||[]).find(x=>x.code===matCode);
+    p.bom.push({matCode,matName:mat?.name||matCode,unit:mat?.unit||'',dm:val,hh:0,price:mat?.price||0,siType:'chinh'});
+  }
+  saveDB();
   go('order-detail',oid);
 }
 
