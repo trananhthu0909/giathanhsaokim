@@ -1741,7 +1741,10 @@ async function exportOrderExcel(id){
       const rr=parseInt(hex.slice(0,2),16),gg=parseInt(hex.slice(2,4),16),bb=parseInt(hex.slice(4,6),16);
       const lum=(0.299*rr+0.587*gg+0.114*bb)/255;
       const txtArgb=lum>0.5?'FF000000':'FFFFFFFF';
-      row.getCell(1).value=c.colorCode||'—';
+      const siCode1=c.siMatCode||c.colorCode||'';
+      const siMat1=(db.materials||[]).find(m=>m.code===siCode1);
+      const siLabel1=siMat1?(siMat1.name||siCode1):siCode1||'—';
+      row.getCell(1).value=siLabel1||'—';
       row.getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb}};
       row.getCell(1).font={bold:true,color:{argb:txtArgb}};
       row.getCell(2).value=c.colorName||'—';
@@ -1786,7 +1789,10 @@ async function exportOrderExcel(id){
         const rr2=parseInt(hex2.slice(0,2),16),gg2=parseInt(hex2.slice(2,4),16),bb2=parseInt(hex2.slice(4,6),16);
         const lum2=(0.299*rr2+0.587*gg2+0.114*bb2)/255;
         const txtArgb2=lum2>0.5?'FF000000':'FFFFFFFF';
-        row.getCell(1).value=c.colorCode||'—';
+        const siCode2=c.siMatCode||c.colorCode||'';
+        const siMat2=(db.materials||[]).find(m=>m.code===siCode2);
+        const siLabel2=siMat2?(siMat2.name||siCode2):siCode2||'—';
+        row.getCell(1).value=siLabel2||'—';
         row.getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:argb2}};
         row.getCell(1).font={bold:true,color:{argb:txtArgb2}};
         row.getCell(2).value=c.colorName||'—';
