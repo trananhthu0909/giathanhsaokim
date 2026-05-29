@@ -368,19 +368,30 @@ function pReport(yr){
     (o.colors||[]).filter(c=>(c.siType||'chinh')!=='phu').forEach(c=>slMonth[m]+=(c.qty||0));
   });
 
-  // 2. SL theo xưởng theo tháng
+  // 2. SL theo xưởng theo tháng — dùng o.facName
   const facSet=new Set();
-  orders.forEach(o=>(o.processes||[]).forEach(p=>p.facName&&facSet.add(p.facName)));
+  orders.forEach(o=>{
+    if(o.facName) facSet.add(o.facName);
+    else (o.processes||[]).forEach(p=>p.facName&&facSet.add(p.facName));
+  });
   const facList=[...facSet];
   const slFac={};
   facList.forEach(f=>slFac[f]=new Array(12).fill(0));
+  if(!slFac['Chưa xác định']) slFac['Chưa xác định']=new Array(12).fill(0);
   orders.forEach(o=>{
     const m=getMonth(o);
     const sl=(o.colors||[]).filter(c=>(c.siType||'chinh')!=='phu').reduce((s,c)=>s+(c.qty||0),0);
-    const facs=[...new Set((o.processes||[]).map(p=>p.facName).filter(Boolean))];
-    if(facs.length) facs.forEach(f=>{ if(slFac[f]) slFac[f][m]+=Math.round(sl/facs.length); });
-    else if(sl>0){ if(!slFac['Chưa xác định']) slFac['Chưa xác định']=new Array(12).fill(0); slFac['Chưa xác định'][m]+=sl; }
+    if(sl<=0) return;
+    if(o.facName){ slFac[o.facName][m]+=sl; }
+    else{
+      const facs=[...new Set((o.processes||[]).map(p=>p.facName).filter(Boolean))];
+      if(facs.length) facs.forEach(f=>{ if(slFac[f]) slFac[f][m]+=Math.round(sl/facs.length); });
+      else slFac['Chưa xác định'][m]+=sl;
+    }
   });
+  // Bỏ xưởng "Chưa xác định" nếu rỗng
+  if(slFac['Chưa xác định'].every(v=>v===0)) delete slFac['Chưa xác định'];
+  const facListFinal=Object.keys(slFac);
 
   // 3. Doanh thu thực tế theo tháng (actualPrice * qty)
   const dtMonth=new Array(12).fill(0);
@@ -445,8 +456,8 @@ function pReport(yr){
   }
 
   const facColors=['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#f97316'];
-  const slFacData=facList.map(f=>slFac[f]||new Array(12).fill(0));
-  const hasFac=facList.length>0;
+  const slFacData=facListFinal.map(f=>slFac[f]||new Array(12).fill(0));
+  const hasFac=facListFinal.length>0;
 
   return`<div class="page-hdr">
     <div><div class="page-title"><i class="ti ti-chart-bar" style="color:var(--accent)"></i> Báo cáo tổng hợp</div>
@@ -477,8 +488,8 @@ function pReport(yr){
       <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--text)">
         <i class="ti ti-building-factory-2" style="color:#f59e0b"></i> Sản lượng theo xưởng
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${hasFac?mkLegend(facList,facColors):'Chưa có dữ liệu xưởng'}</div>
-      ${hasFac?mkBar(slFacData,months,facColors,{lpad:60,fmt:v=>v.toLocaleString('vi-VN')}):'<div style="height:140px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px">Chưa có đơn hàng</div>'}
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${hasFac?mkLegend(facListFinal,facColors):'Chọn xưởng trong đơn hàng để hiện dữ liệu'}</div>
+      ${hasFac?mkBar(slFacData,months,facColors,{lpad:60,fmt:v=>v.toLocaleString('vi-VN')}):'<div style="height:140px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px">Chưa có dữ liệu xưởng</div>'}
     </div>
 
     <!-- 3. Doanh thu thực tế theo tháng -->
@@ -2582,6 +2593,16 @@ function pOrderDetail(id){
             style="border:1px solid var(--border2);border-radius:6px;padding:2px 7px;font-size:12px;font-family:inherit;margin-left:4px">
         </span>
         <span>Tổng SL: <b style="color:var(--accent)">${totalQty.toLocaleString('vi-VN')} sp</b></span>
+        <span style="display:flex;align-items:center;gap:6px">
+          <i class="ti ti-building-factory-2" style="color:#f59e0b;font-size:13px"></i>
+          <b style="font-size:12px">Xưởng GC:</b>
+          <select onchange="updO('${id}','facName',this.value)"
+            style="border:1px solid var(--border2);border-radius:6px;padding:2px 8px;font-size:12px;font-family:inherit;background:var(--bg);color:var(--text)">
+            <option value="">— Chọn xưởng —</option>
+            ${(db.factories||[]).map(f=>`<option value="${f.name}" ${o.facName===f.name?'selected':''}>${f.name}</option>`).join('')}
+          </select>
+          ${o.facName?`<span style="font-size:11px;color:var(--text3)">${o.facName}</span>`:''}
+        </span>
       </div>
     </div>
     <div style="display:flex;gap:8px" class="no-print">
