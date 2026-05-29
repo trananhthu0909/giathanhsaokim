@@ -342,16 +342,29 @@ function pReport(yr){
   const allYears=[...new Set((db.orders||[]).map(o=>new Date(o.deliveryDate||o.createdAt||'').getFullYear()).filter(y=>y>2000))].sort((a,b)=>b-a);
   if(!allYears.includes(year)) allYears.unshift(year);
 
+  // Hàm lấy tháng từ order (createdAt dạng "dd/mm/yyyy" hoặc deliveryDate dạng "yyyy-mm-dd")
+  function getMonth(o){
+    const ca=o.createdAt||'';
+    if(ca.includes('/')) { const p=ca.split('/'); return p.length>=3?+p[1]-1:0; }
+    const dd=o.deliveryDate||'';
+    if(dd.includes('-')) return new Date(dd).getMonth();
+    return 0;
+  }
+  function getYear(o){
+    const ca=o.createdAt||'';
+    if(ca.includes('/')) { const p=ca.split('/'); return p.length>=3?+p[2]:0; }
+    const dd=o.deliveryDate||'';
+    if(dd.includes('-')) return new Date(dd).getFullYear();
+    return 0;
+  }
+
   // Lấy đơn theo năm
-  const orders=(db.orders||[]).filter(o=>{
-    const d=new Date(o.deliveryDate||o.createdAt||'');
-    return d.getFullYear()===year;
-  });
+  const orders=(db.orders||[]).filter(o=>getYear(o)===year);
 
   // 1. SL sản xuất theo tháng (Sỉ chính)
   const slMonth=new Array(12).fill(0);
   orders.forEach(o=>{
-    const m=new Date(o.deliveryDate||o.createdAt||'').getMonth();
+    const m=getMonth(o);
     (o.colors||[]).filter(c=>(c.siType||'chinh')!=='phu').forEach(c=>slMonth[m]+=(c.qty||0));
   });
 
@@ -362,25 +375,35 @@ function pReport(yr){
   const slFac={};
   facList.forEach(f=>slFac[f]=new Array(12).fill(0));
   orders.forEach(o=>{
-    const m=new Date(o.deliveryDate||o.createdAt||'').getMonth();
+    const m=getMonth(o);
     const sl=(o.colors||[]).filter(c=>(c.siType||'chinh')!=='phu').reduce((s,c)=>s+(c.qty||0),0);
     const facs=[...new Set((o.processes||[]).map(p=>p.facName).filter(Boolean))];
     if(facs.length) facs.forEach(f=>{ if(slFac[f]) slFac[f][m]+=Math.round(sl/facs.length); });
     else if(sl>0){ if(!slFac['Chưa xác định']) slFac['Chưa xác định']=new Array(12).fill(0); slFac['Chưa xác định'][m]+=sl; }
   });
 
-  // 3. Doanh thu thực tế theo tháng
+  // 3. Doanh thu thực tế theo tháng (actualPrice * qty)
   const dtMonth=new Array(12).fill(0);
   orders.forEach(o=>{
-    const m=new Date(o.deliveryDate||o.createdAt||'').getMonth();
-    dtMonth[m]+=parseFloat(o.actualRevenue||0);
+    const m=getMonth(o);
+    const p=GP(o.productId); if(!p) return;
+    const c=calc(p);
+    if(c.actual>0){
+      const qty=(o.colors||[]).filter(cl=>(cl.siType||'chinh')!=='phu').reduce((s,cl)=>s+(cl.qty||0),0);
+      dtMonth[m]+=c.actual*qty;
+    }
   });
 
-  // 4. Lợi nhuận thực tế theo tháng
+  // 4. Lợi nhuận thực tế theo tháng (actProfit * qty)
   const lnMonth=new Array(12).fill(0);
   orders.forEach(o=>{
-    const m=new Date(o.deliveryDate||o.createdAt||'').getMonth();
-    lnMonth[m]+=parseFloat(o.actualProfit||o.realProfit||0);
+    const m=getMonth(o);
+    const p=GP(o.productId); if(!p) return;
+    const c=calc(p);
+    if(c.actual>0&&c.actProfit!=null){
+      const qty=(o.colors||[]).filter(cl=>(cl.siType||'chinh')!=='phu').reduce((s,cl)=>s+(cl.qty||0),0);
+      lnMonth[m]+=c.actProfit*qty;
+    }
   });
 
   // SVG bar chart helper
