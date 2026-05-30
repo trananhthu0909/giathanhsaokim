@@ -292,7 +292,10 @@ function render(){
   else if(st.page==='materials') el.innerHTML=pMaterials();
   else if(st.page==='factories') el.innerHTML=pFactories();
   else if(st.page==='orders') el.innerHTML=pOrders();
-  else if(st.page==='order-detail') el.innerHTML=pOrderDetail(st.pid);
+  else if(st.page==='order-detail'){
+    try{el.innerHTML=pOrderDetail(st.pid);}
+    catch(e){el.innerHTML=`<div class="card" style="padding:24px;color:var(--danger)"><b>Lỗi mở đơn hàng:</b><br><code>${e.message}</code><br><pre style="font-size:11px;overflow:auto">${e.stack||''}</pre></div>`;console.error(e);}
+  }
   else if(st.page==='sync') el.innerHTML=pSync();
   else if(st.page==='report') {el.innerHTML=pReport(st.pid);bindReport();}
   updateReminders();
