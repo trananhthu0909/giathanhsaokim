@@ -267,6 +267,15 @@ const GP = id => db.products.find(p=>p.id===id);
 
 function loadDB(){
   try{const d=localStorage.getItem('gt_db');if(d){db=JSON.parse(d);if(!db.orders)db.orders=[];}}catch(e){}
+  // Xóa qtyOverride của các Si materials (S-prefix) để tính lại đúng theo ĐM
+  (db.orders||[]).forEach(o=>{
+    if(!o.matMeta) return;
+    Object.keys(o.matMeta).forEach(code=>{
+      if((code||'').toUpperCase().startsWith('S')&&o.matMeta[code]?.qtyOverride){
+        delete o.matMeta[code].qtyOverride;
+      }
+    });
+  });
 }
 function saveDB(){
   localStorage.setItem('gt_db',JSON.stringify(db));
@@ -2287,8 +2296,7 @@ function calcOrderMats(o){
       const cMat=mats.find(x=>x.code===cCode)||mats.find(x=>(x.name||'').toLowerCase()===cCode.toLowerCase());
       const cRealCode=cMat?cMat.code:cCode;
       if(cRealCode!==realCode) return 0;
-      if(meta[realCode]?.qtyOverride?.[ci]!==undefined)
-        return parseFloat(meta[realCode].qtyOverride[ci]);
+      // Luôn tính theo ĐM × SL (không dùng override để tránh sai)
       return parseFloat((dmEff*(c.qty||0)).toFixed(3));
     });
     const total=parseFloat(byColor.reduce((s,v)=>s+v,0).toFixed(3));
