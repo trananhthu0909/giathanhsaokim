@@ -293,8 +293,12 @@ function render(){
   else if(st.page==='factories') el.innerHTML=pFactories();
   else if(st.page==='orders') el.innerHTML=pOrders();
   else if(st.page==='order-detail'){
-    try{el.innerHTML=pOrderDetail(st.pid);}
-    catch(e){el.innerHTML=`<div class="card" style="padding:24px;color:var(--danger)"><b>Lỗi mở đơn hàng:</b><br><code>${e.message}</code><br><pre style="font-size:11px;overflow:auto">${e.stack||''}</pre></div>`;console.error(e);}
+    try{
+      const html=pOrderDetail(st.pid);
+      if(!html||html.length<100){el.innerHTML='<div class="card" style="padding:24px;color:orange">pOrderDetail trả về rỗng. id='+st.pid+'</div>';return;}
+      el.innerHTML=html;
+    }
+    catch(e){el.innerHTML=`<div class="card" style="padding:24px;color:var(--danger)"><b>Lỗi:</b> ${e.message}<pre style="font-size:10px">${(e.stack||'').slice(0,500)}</pre></div>`;console.error(e);}
   }
   else if(st.page==='sync') el.innerHTML=pSync();
   else if(st.page==='report') {el.innerHTML=pReport(st.pid);bindReport();}
@@ -2554,17 +2558,19 @@ function pOrderDetail(id){
               <td><input type="text" value="${m.mauSac||''}" placeholder="Màu..."
                 onchange="updMatMeta('${id}','${m.matCode}','mauSac',this.value)"
                 style="width:78px;background:transparent;border:1px solid var(--border2);border-radius:6px;padding:3px 6px;font-size:12px;font-family:inherit"></td>
-              <td class="num">
+              <td class="num" style="display:flex;align-items:center;gap:3px">
                 <input type="number" value="${m.dm||m.dmEff||''}" min="0" step="0.001" placeholder="0.000"
                   onchange="updBOMDm('${id}','${m.matCode}',+this.value)"
-                  style="width:68px;text-align:right;border:1px solid var(--border2);border-radius:5px;font-size:12px;padding:2px 4px;font-family:inherit;background:var(--bg)">
+                  style="width:62px;text-align:right;border:1px solid var(--border2);border-radius:5px;font-size:12px;padding:2px 4px;font-family:inherit;background:var(--bg)">
+                <button onclick="resetMatQty('${id}','${m.matCode}')" title="Reset về công thức ĐM × SL"
+                  style="border:1px solid var(--border2);background:#fef3c7;border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer;color:#92400e;white-space:nowrap">↺</button>
               </td>
               ${colorGroup.map(c=>{
                 const qty=m.byColor[c._ci];
                 return`<td class="num">
                   <input type="number" value="${qty>0?qty:''}" min="0" step="0.001" placeholder="—"
                     onchange="updSiQty('${id}','${m.matCode}',${c._ci},+this.value)"
-                    style="width:62px;text-align:right;border:1px solid var(--border2);border-radius:5px;font-size:12px;padding:2px 4px;font-family:inherit;background:transparent;color:${qty>0?'var(--text)':'var(--text3)'}">
+                    style="width:62px;text-align:right;border:1px solid var(--border2);border-radius:5px;font-size:12px;padding:2px 4px;font-family:inherit;background:transparent">
                 </td>`;
               }).join('')}
               <td class="num" style="font-weight:700;color:#7c3aed;background:#faf5ff">${m.total>0?m.total.toFixed(2):'—'}</td>
