@@ -417,6 +417,42 @@ function pReport(yr){
     }
   });
 
+  // 5. Chi phí mua NPL: Sỉ vs Phụ kiện theo tháng
+  const cpSiMonth=new Array(12).fill(0);
+  const cpPKMonth=new Array(12).fill(0);
+  orders.forEach(o=>{
+    const m=getMonth(o);
+    try{
+      const mats=calcOrderMats(o);
+      mats.forEach(mat=>{
+        const cost=mat.toBuy*(mat.price||0);
+        if(mat.isSi) cpSiMonth[m]+=cost;
+        else cpPKMonth[m]+=cost;
+      });
+    }catch(e){}
+  });
+
+  // 6. Chi phí gia công theo xưởng + theo tháng
+  const gcFacSet=new Set();
+  orders.forEach(o=>{
+    const f=o.facName||((o.processes||[])[0]?.facName)||'';
+    if(f) gcFacSet.add(f);
+  });
+  const gcFacList=[...gcFacSet];
+  const gcByFacMonth={};
+  gcFacList.forEach(f=>gcByFacMonth[f]=new Array(12).fill(0));
+  const gcByFac={};
+  gcFacList.forEach(f=>gcByFac[f]=0);
+  orders.forEach(o=>{
+    const m=getMonth(o);
+    const facName=o.facName||((o.processes||[])[0]?.facName)||'Chưa xác định';
+    const qty=(o.colors||[]).filter(c=>(c.siType||'chinh')!=='phu').reduce((s,c)=>s+(c.qty||0),0);
+    const gcPrice=(o.processes||[]).reduce((s,p)=>s+(parseFloat(p.price)||0),0);
+    const cost=qty*gcPrice;
+    if(gcByFacMonth[facName]) gcByFacMonth[facName][m]+=cost;
+    if(gcByFac[facName]!==undefined) gcByFac[facName]+=cost;
+  });
+
   // SVG bar chart helper
   function mkBar(data,labels,colors,opts={}){
     const W=opts.w||560,H=opts.h||200,pad={t:20,r:12,b:36,l:opts.lpad||52};
@@ -516,7 +552,68 @@ function pReport(yr){
       </div>
     </div>
 
-  </div>`;
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;padding-bottom:32px">
+
+    <!-- 5. Chi phí mua NPL theo tháng -->
+    <div class="card" style="padding:20px 20px 14px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--text)">
+        <i class="ti ti-shopping-cart" style="color:#e11d48"></i> Chi phí mua NPL theo tháng
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">
+        ${mkLegend(['Chi phí mua sỉ','Chi phí phụ kiện'],['#6366f1','#10b981'])}
+      </div>
+      ${mkBar([cpSiMonth,cpPKMonth],months,['#6366f1','#10b981'],{lpad:72,w:560,fmt:v=>v>=1e6?(v/1e6).toFixed(1)+'tr':Math.round(v).toLocaleString('vi-VN')})}
+      <div style="display:flex;justify-content:space-around;margin-top:8px;font-size:12px">
+        <span>Sỉ cả năm: <b style="color:#6366f1">${fmt(cpSiMonth.reduce((s,v)=>s+v,0))}</b></span>
+        <span>Phụ kiện cả năm: <b style="color:#10b981">${fmt(cpPKMonth.reduce((s,v)=>s+v,0))}</b></span>
+      </div>
+    </div>
+
+    <!-- 6. Chi phí gia công theo xưởng -->
+    <div class="card" style="padding:20px 20px 14px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--text)">
+        <i class="ti ti-hammer" style="color:#f97316"></i> Chi phí gia công theo xưởng
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Tổng chi phí gia công (đơn giá × SL) · ĐVT: VNĐ</div>
+      ${gcFacList.length===0
+        ?'<div style="height:140px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px">Chọn xưởng trong đơn hàng để hiện dữ liệu</div>'
+        :`<div style="margin-top:4px">
+          ${gcFacList.map((f,i)=>{
+            const total=gcByFac[f]||0;
+            const maxGC=Math.max(...gcFacList.map(x=>gcByFac[x]||0),1);
+            const pct=total/maxGC*100;
+            return`<div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:13px;font-weight:600;color:var(--text)">
+                  <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${facColors[i%facColors.length]};margin-right:5px"></span>
+                  ${f}
+                </span>
+                <span style="font-size:13px;font-weight:700;color:var(--accent)">${fmt(total)}</span>
+              </div>
+              <div style="background:var(--bg2);border-radius:6px;height:10px;overflow:hidden">
+                <div style="background:${facColors[i%facColors.length]};height:100%;width:${pct.toFixed(1)}%;border-radius:6px;transition:width .4s"></div>
+              </div>
+            </div>`;
+          }).join('')}
+          <div style="text-align:center;margin-top:10px;font-size:12px;color:var(--text2)">
+            Tổng cả năm: <b style="color:#f97316">${fmt(gcFacList.reduce((s,f)=>s+(gcByFac[f]||0),0))}</b>
+          </div>
+        </div>`}
+    </div>
+
+  </div>
+
+  <!-- Thêm biểu đồ gia công theo tháng nếu có nhiều xưởng -->
+  ${gcFacList.length>0?`
+  <div class="card" style="padding:20px 20px 14px;margin-bottom:32px">
+    <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--text)">
+      <i class="ti ti-chart-line" style="color:#f97316"></i> Chi phí gia công theo tháng từng xưởng
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${mkLegend(gcFacList,facColors)}</div>
+    ${mkBar(gcFacList.map(f=>gcByFacMonth[f]||new Array(12).fill(0)),months,facColors,{lpad:72,w:1100,h:220,fmt:v=>v>=1e6?(v/1e6).toFixed(1)+'tr':Math.round(v).toLocaleString('vi-VN')})}
+  </div>`:''}`;
 }
 function bindReport(){}
 
