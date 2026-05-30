@@ -726,7 +726,8 @@ function pDash(){
           <thead><tr>
             <th>Mã đơn</th><th>Sản phẩm</th><th>Màu sắc</th>
             <th class="num">SL (sp)</th>
-            <th class="num">LN dự kiến</th><th class="num">LN thực tế</th>
+            <th>Xưởng GC</th>
+            <th class="num">Giá bán TT</th><th class="num">LN thực tế</th>
             <th>Trạng thái</th><th>Ngày giao</th><th></th>
           </tr></thead>
           <tbody>
@@ -734,8 +735,9 @@ function pDash(){
             const p=GP(o.productId);
             const c=p?calc(p):null;
             const qty=(o.colors||[]).filter(cl=>cl.siType!=='phu').reduce((s,cl)=>s+(cl.qty||0),0);
-            const est=c?c.profit*qty:null;
             const act=c&&c.actual>0?c.actProfit*qty:null;
+            const actRev=c&&c.actual>0?c.actual*qty:null;
+            const facName=o.facName||(p&&(p.processes||[]).length?(p.processes[0].facName||''):'');
             const th=p&&(p.images||[]).length
               ?`<img src="${p.images[0].data}" style="width:22px;height:22px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:5px;border:1px solid var(--border)">`
               :'';
@@ -747,7 +749,8 @@ function pDash(){
               <td>${th}<span style="font-weight:500;font-size:13px">${p?p.name:'—'}</span></td>
               <td>${swatches}<span style="font-size:11px;color:var(--text2)">${(o.colors||[]).length} màu</span></td>
               <td class="num" style="font-weight:700;font-size:14px">${qty.toLocaleString('vi-VN')}</td>
-              <td class="num" style="color:#7c3aed;font-weight:500">${est!==null?fmt(est):'—'}</td>
+              <td style="font-size:12px">${facName?`<span style="display:inline-flex;align-items:center;gap:3px"><i class="ti ti-building-factory-2" style="color:#f59e0b;font-size:11px"></i>${facName}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
+              <td class="num" style="color:var(--success);font-weight:600">${actRev!==null?fmt(actRev):'<span style="color:var(--text3);font-size:11px">—</span>'}</td>
               <td class="num" style="font-weight:600;color:${act===null?'var(--text3)':act>=0?'var(--success)':'var(--danger)'}">
                 ${act===null?'—':(act>=0?'+':'')+fmt(act)}</td>
               <td>${statusBadge(o.status)}</td>
@@ -832,9 +835,9 @@ function prodTableHTML(list){
       <th style="width:48px"></th>
       <th>Mã hàng</th>
       <th>Tên sản phẩm</th>
+      <th>Xưởng GC</th>
       <th class="num">Giá thành/sp</th>
-      <th class="num">Giá bán đề xuất</th>
-      <th class="num">% LN dự kiến</th>
+      <th class="num">Giá bán thực tế</th>
       <th class="num">% LN thực tế</th>
       <th>Cập nhật</th>
       <th></th>
@@ -842,17 +845,20 @@ function prodTableHTML(list){
     <tbody>${list.map(p=>{
       const c=calc(p);
       const thumb=(p.images&&p.images.length)?`<img class="prod-thumb" src="${p.images[0].data}" alt="">`:`<div class="prod-thumb-empty"><i class="ti ti-photo"></i></div>`;
-      const pctEst=c.sale>0?(c.profit/c.sale*100):0;
       const pctAct=c.actPct;
-      const pctEstColor=pctEst>=20?'var(--success)':pctEst>=10?'var(--warn)':'var(--danger)';
       const pctActColor=pctAct===null?'var(--text3)':pctAct>=20?'var(--success)':pctAct>=10?'var(--warn)':'var(--danger)';
+      // Lấy danh sách xưởng từ p.processes
+      const facNames=[...new Set((p.processes||[]).map(pr=>pr.facName||'').filter(Boolean))];
+      const facDisplay=facNames.length
+        ?facNames.map(f=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;background:#fef3c7;color:#92400e;border-radius:5px;padding:2px 6px;margin:1px"><i class="ti ti-building-factory-2" style="font-size:10px"></i>${f}</span>`).join('')
+        :'<span style="color:var(--text3);font-size:12px">—</span>';
       return`<tr style="cursor:pointer" onclick="go('detail','${p.id}')">
         <td style="width:48px">${thumb}</td>
         <td><span class="badge b-blue">${highlight(p.code||'—',q)}</span></td>
         <td style="font-weight:500">${highlight(p.name||'—',q)}</td>
+        <td>${facDisplay}</td>
         <td class="num">${fmt(c.cost)}</td>
-        <td class="num" style="color:var(--accent);font-weight:600">${fmt(c.sale)}</td>
-        <td class="num"><span style="font-weight:600;color:${pctEstColor}">${pctEst.toFixed(1)}%</span></td>
+        <td class="num" style="color:var(--success);font-weight:600">${c.actual>0?fmt(c.actual):'<span style="color:var(--text3);font-size:12px">Chưa nhập</span>'}</td>
         <td class="num">${pctAct!==null?`<span style="font-weight:600;color:${pctActColor}">${pctAct>=0?'+':''}${pctAct.toFixed(1)}%</span>`:`<span style="color:var(--text3);font-size:12px">—</span>`}</td>
         <td style="color:var(--text2);font-size:12px">${p.updatedAt||'—'}</td>
         <td onclick="event.stopPropagation()" style="display:flex;gap:6px;align-items:center">
@@ -2384,7 +2390,7 @@ function pOrders(){
 function orderTableHTML(list){
   if(!list.length) return`<div class="empty"><i class="ti ti-zoom-question"></i><p>Không tìm thấy đơn hàng nào khớp với "<b>${_orderQ}</b>".</p></div>`;
   return`<div class="tbl-wrap"><table class="dtbl">
-    <thead><tr><th>Mã đơn</th><th>Sản phẩm</th><th>Màu sắc</th><th class="num">Tổng SL</th><th>Ngày giao</th><th>Trạng thái</th><th></th></tr></thead>
+    <thead><tr><th>Mã đơn</th><th>Sản phẩm</th><th>Màu sắc</th><th class="num">Tổng SL</th><th>Xưởng GC</th><th>Ngày giao</th><th>Trạng thái</th><th></th></tr></thead>
     <tbody>${list.map(o=>{
       const p=GP(o.productId);
       const totalQty=(o.colors||[]).filter(c=>c.siType!=='phu').reduce((s,c)=>s+(c.qty||0),0);
@@ -2394,11 +2400,14 @@ function orderTableHTML(list){
       const colorSwatches=(o.colors||[]).slice(0,6).map(c=>
         `<span title="${c.colorCode} ${c.colorName||''}" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${c.colorHex||'#ccc'};border:1px solid rgba(0,0,0,.12);margin-right:2px"></span>`
       ).join('')+((o.colors||[]).length>6?`<span style="font-size:11px;color:var(--text3)">+${(o.colors||[]).length-6}</span>`:'');
+      // Lấy tên xưởng từ o.facName hoặc p.processes
+      const facName=o.facName||(p&&(p.processes||[]).length?(p.processes[0].facName||''):'');
       return`<tr onclick="go('order-detail','${o.id}')" style="cursor:pointer">
         <td><span class="badge b-blue">${o.orderCode||'—'}</span></td>
         <td>${thumb}<span style="font-weight:500">${p?p.name:'—'}</span> ${p?`<span class="badge b-blue" style="font-size:10px;margin-left:4px">${p.code}</span>`:''}</td>
         <td>${colorSwatches} <span style="font-size:12px;color:var(--text2)">${(o.colors||[]).length} màu</span></td>
         <td class="num" style="font-weight:600">${totalQty.toLocaleString('vi-VN')} sp</td>
+        <td style="font-size:12px">${facName?`<span style="display:inline-flex;align-items:center;gap:4px"><i class="ti ti-building-factory-2" style="color:#f59e0b;font-size:12px"></i>${facName}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
         <td style="color:var(--text2);font-size:12px">${o.deliveryDate||'—'}</td>
         <td>${statusBadge(o.status)}</td>
         <td onclick="event.stopPropagation()" style="display:flex;gap:6px;align-items:center">
