@@ -2542,7 +2542,7 @@ function pOrderDetail(id){
               <td><span class="badge" style="background:${accentBg};color:${accent};font-size:10px">${m.matCode||'—'}</span></td>
               <td style="font-weight:600;font-size:13px">
                 ${m.matName||'—'}
-                ${Object.keys(m.byColor||{}).some(k=>m.byColor[k]>0&&(order?.matMeta||{})[m.matCode]?.qtyOverride)?
+                ${(o?.matMeta||{})[m.matCode]?.qtyOverride?
                   `<button onclick="resetMatQty('${id}','${m.matCode}')" title="Xóa nhập tay, tính lại theo ĐM"
                     style="margin-left:4px;border:1px solid var(--border2);background:var(--bg2);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer;color:var(--text3)">↺ Reset</button>`:''
                 }
