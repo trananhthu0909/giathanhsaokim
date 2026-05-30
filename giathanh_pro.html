@@ -2540,7 +2540,13 @@ function pOrderDetail(id){
           if(m.isSi){
             return`<tr>
               <td><span class="badge" style="background:${accentBg};color:${accent};font-size:10px">${m.matCode||'—'}</span></td>
-              <td style="font-weight:600;font-size:13px">${m.matName||'—'}</td>
+              <td style="font-weight:600;font-size:13px">
+                ${m.matName||'—'}
+                ${Object.keys(m.byColor||{}).some(k=>m.byColor[k]>0&&(order?.matMeta||{})[m.matCode]?.qtyOverride)?
+                  `<button onclick="resetMatQty('${id}','${m.matCode}')" title="Xóa nhập tay, tính lại theo ĐM"
+                    style="margin-left:4px;border:1px solid var(--border2);background:var(--bg2);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer;color:var(--text3)">↺ Reset</button>`:''
+                }
+              </td>
               <td style="color:var(--text2)">${m.unit||'—'}</td>
               <td><input type="text" value="${m.mauSac||''}" placeholder="Màu..."
                 onchange="updMatMeta('${id}','${m.matCode}','mauSac',this.value)"
@@ -3098,20 +3104,20 @@ function updBOMDm(oid,matCode,val){
   const o=db.orders.find(x=>x.id===oid); if(!o) return;
   const p=GP(o.productId); if(!p) return;
   if(!p.bom) p.bom=[];
-  // Tìm BOM item theo matCode
   let bItem=p.bom.find(b=>b.matCode===matCode);
   if(bItem){
     bItem.dm=val;
   } else {
-    // Thêm mới: xác định siType dựa trên material
     const mat=(db.materials||[]).find(x=>x.code===matCode);
     const isS=(matCode||'').toUpperCase().startsWith('S');
-    // Kiểm tra xem color nào dùng matCode này để xác định chinh/phu
     const o2=db.orders.find(x=>x.id===oid);
     const isPhu=(o2?.colors||[]).some(c=>(c.siMatCode===matCode||c.colorCode===matCode)&&c.siType==='phu');
     const siType=isS?(isPhu?'phu':'chinh'):'pk';
     p.bom.push({matCode,matName:mat?.name||matCode,unit:mat?.unit||'',dm:val,hh:0,price:mat?.price||0,siType});
   }
+  // Xóa qtyOverride cũ để công thức tính lại theo ĐM mới
+  if(!o.matMeta) o.matMeta={};
+  if(o.matMeta[matCode]) delete o.matMeta[matCode].qtyOverride;
   saveDB();
   go('order-detail',oid);
 }
@@ -3217,6 +3223,12 @@ function updSiQty(oid,matCode,ci,val){
   if(!o.matMeta[matCode])o.matMeta[matCode]={};
   if(!o.matMeta[matCode].qtyOverride)o.matMeta[matCode].qtyOverride={};
   o.matMeta[matCode].qtyOverride[ci]=val;saveDB();go('order-detail',oid);
+}
+// Xóa nhập tay → tính lại theo ĐM
+function resetMatQty(oid,matCode){
+  const o=db.orders.find(x=>x.id===oid);if(!o)return;
+  if(o.matMeta&&o.matMeta[matCode]) delete o.matMeta[matCode].qtyOverride;
+  saveDB();go('order-detail',oid);
 }
 
 // ── SUPPLIERS ──
