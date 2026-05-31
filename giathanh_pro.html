@@ -2284,9 +2284,11 @@ function calcOrderMats(o){
     if(!siMat) siMat=mats.find(x=>(x.name||'').toLowerCase()===siCode.toLowerCase());
     if(!siMat) siMat={code:siCode,name:siCode,price:0,unit:''};
     const realCode=siMat.code||siCode;
-    // Tìm BOM item riêng cho siCode này (ưu tiên), fallback về bomRef chung
-    const specificBom=(p.bom||[]).find(b=>b.matCode===realCode)||bomRef;
-    const dmEff=(specificBom?.dm||0)*(1+(specificBom?.hh||0)/100);
+    // ĐM: ưu tiên từ matMeta của đơn hàng (user nhập tay), sau đó BOM sản phẩm
+    const metaDm=meta[realCode]?.dm;
+    const specificBom=(p.bom||[]).find(b=>b.matCode===realCode)||(p.bom||[]).find(b=>b.matCode===siCode)||bomRef;
+    const dmFromBom=(specificBom?.dm||0)*(1+(specificBom?.hh||0)/100);
+    const dmEff=metaDm!==undefined?parseFloat(metaDm):dmFromBom;
     const byColor=allColors.map((c,ci)=>{
       const colorSiType=c.siType||'chinh';
       if(isSiPhu&&colorSiType!=='phu') return 0;
@@ -2310,8 +2312,8 @@ function calcOrderMats(o){
     const toBuy=parseFloat(Math.max(0,total-stock).toFixed(3));
     const totalTT=byColor.reduce((s,v)=>s+v*price,0);
     return{
-      matCode:realCode,matName:siMat.name||siCode,unit:siMat.unit||bomRef?.unit||'—',
-      dm:bomRef?.dm||0,hh:bomRef?.hh||0,price,
+      matCode:realCode,matName:siMat.name||siCode,unit:siMat.unit||specificBom?.unit||bomRef?.unit||'—',
+      dm:specificBom?.dm||0,hh:specificBom?.hh||0,price,
       siType:isSiPhu?'phu':'chinh',dmEff,byColor,total,stock,toBuy,
       isSi:true,isSiChinh:!isSiPhu,isSiPhu,
       mauSac:meta[realCode]?.mauSac||'',
@@ -3119,22 +3121,12 @@ function pickSiMat(oid,ci,matCode){
 
 function updBOMDm(oid,matCode,val){
   const o=db.orders.find(x=>x.id===oid); if(!o) return;
-  const p=GP(o.productId); if(!p) return;
-  if(!p.bom) p.bom=[];
-  let bItem=p.bom.find(b=>b.matCode===matCode);
-  if(bItem){
-    bItem.dm=val;
-  } else {
-    const mat=(db.materials||[]).find(x=>x.code===matCode);
-    const isS=(matCode||'').toUpperCase().startsWith('S');
-    const o2=db.orders.find(x=>x.id===oid);
-    const isPhu=(o2?.colors||[]).some(c=>(c.siMatCode===matCode||c.colorCode===matCode)&&c.siType==='phu');
-    const siType=isS?(isPhu?'phu':'chinh'):'pk';
-    p.bom.push({matCode,matName:mat?.name||matCode,unit:mat?.unit||'',dm:val,hh:0,price:mat?.price||0,siType});
-  }
-  // Xóa qtyOverride cũ để công thức tính lại theo ĐM mới
+  // Lưu ĐM vào matMeta của đơn hàng (không sửa BOM sản phẩm - tránh lỗi data cũ)
   if(!o.matMeta) o.matMeta={};
-  if(o.matMeta[matCode]) delete o.matMeta[matCode].qtyOverride;
+  if(!o.matMeta[matCode]) o.matMeta[matCode]={};
+  o.matMeta[matCode].dm=val;
+  // Xóa qtyOverride cũ để tính lại theo ĐM mới
+  delete o.matMeta[matCode].qtyOverride;
   saveDB();
   go('order-detail',oid);
 }
