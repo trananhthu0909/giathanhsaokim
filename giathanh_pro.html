@@ -188,6 +188,7 @@ table.dtbl{width:100%;border-collapse:collapse}
     <div class="n-item" id="nav-factories" onclick="go('factories')"><i class="ti ti-building-factory-2"></i>Xưởng gia công</div>
     <div class="n-sec">Hệ thống</div>
     <div class="n-item" id="nav-sync" onclick="go('sync')"><i class="ti ti-refresh"></i>Đồng bộ dữ liệu</div>
+    <div class="n-item" id="nav-thuchi" onclick="go('thuchi')"><i class="ti ti-wallet"></i>Thu chi thực tế</div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
       <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;padding:0 2px">Tìm nhanh mã hàng</div>
       <div style="position:relative">
@@ -310,6 +311,7 @@ function render(){
     catch(e){el.innerHTML=`<div class="card" style="padding:24px;color:var(--danger)"><b>Lỗi:</b> ${e.message}<pre style="font-size:10px">${(e.stack||'').slice(0,500)}</pre></div>`;console.error(e);}
   }
   else if(st.page==='sync') el.innerHTML=pSync();
+  else if(st.page==='thuchi'){el.innerHTML=pThuChi();bindThuChi();}
   else if(st.page==='report') {el.innerHTML=pReport(st.pid);bindReport();}
   updateReminders();
 }
@@ -633,6 +635,184 @@ function pReport(yr){
 }
 function bindReport(){}
 
+// ── THU CHI THỰC TẾ ──
+function pThuChi(){
+  if(!db.thuChi) db.thuChi=[];
+  const rows=db.thuChi;
+  const totalThu=rows.filter(r=>r.type==='thu').reduce((s,r)=>s+(r.amount||0),0);
+  const totalChi=rows.filter(r=>r.type==='chi').reduce((s,r)=>s+(r.amount||0),0);
+  const canDoi=totalThu-totalChi;
+
+  const rowsHTML=rows.length===0
+    ?`<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">Chưa có dữ liệu. Nhập tay hoặc import từ Excel.</td></tr>`
+    :rows.map((r,i)=>`<tr>
+      <td style="font-size:12px;color:var(--text2)">${r.date||'—'}</td>
+      <td><span class="badge" style="background:${r.type==='thu'?'#d1fae5':'#fee2e2'};color:${r.type==='thu'?'#065f46':'#991b1b'}">${r.type==='thu'?'💰 Thu':'💸 Chi'}</span></td>
+      <td style="font-weight:500">${r.category||'—'}</td>
+      <td style="font-weight:500">${r.note||'—'}</td>
+      <td class="num" style="font-weight:700;color:${r.type==='thu'?'var(--success)':'var(--danger)'}">
+        ${r.type==='thu'?'+':'-'}${fmtN(r.amount||0)} ₫
+      </td>
+      <td onclick="event.stopPropagation()">
+        <button class="btn btn-danger btn-sm" onclick="delThuChi(${i})"><i class="ti ti-trash"></i></button>
+      </td>
+    </tr>`).join('');
+
+  return`<div class="page-hdr">
+    <div><div class="page-title"><i class="ti ti-wallet" style="color:#10b981"></i> Thu chi thực tế</div>
+    <div class="page-sub">Theo dõi thu chi · ${rows.length} giao dịch</div></div>
+    <div style="display:flex;gap:8px">
+      <label class="btn btn-sec" style="cursor:pointer">
+        <i class="ti ti-file-spreadsheet"></i> Import Excel
+        <input type="file" id="tc-file" accept=".xlsx,.xls,.csv" onchange="importThuChi(this)" style="display:none">
+      </label>
+      <button class="btn btn-primary" onclick="openAddThuChi()"><i class="ti ti-plus"></i> Thêm thủ công</button>
+    </div>
+  </div>
+
+  <!-- Tổng hợp -->
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:18px">
+    <div class="stat-card" style="background:#d1fae5;border-color:#34d39933">
+      <div class="stat-lbl" style="color:#065f46">💰 Tổng Thu</div>
+      <div style="font-size:20px;font-weight:700;color:#065f46">${fmtN(totalThu)} ₫</div>
+    </div>
+    <div class="stat-card" style="background:#fee2e2;border-color:#f8717133">
+      <div class="stat-lbl" style="color:#991b1b">💸 Tổng Chi</div>
+      <div style="font-size:20px;font-weight:700;color:#991b1b">${fmtN(totalChi)} ₫</div>
+    </div>
+    <div class="stat-card" style="background:${canDoi>=0?'#eff6ff':'#fef2f2'};border-color:${canDoi>=0?'#2563eb':'#ef4444'}33">
+      <div class="stat-lbl" style="color:${canDoi>=0?'#2563eb':'#991b1b'}">⚖️ Cân đối</div>
+      <div style="font-size:20px;font-weight:700;color:${canDoi>=0?'#2563eb':'#991b1b'}">${canDoi>=0?'+':''}${fmtN(canDoi)} ₫</div>
+    </div>
+  </div>
+
+  <!-- Hướng dẫn import Excel -->
+  <div class="card" style="padding:14px 18px;margin-bottom:16px;background:#fffbeb;border-color:#fcd34d44">
+    <div style="font-size:13px;font-weight:600;color:#92400e;margin-bottom:6px"><i class="ti ti-info-circle"></i> Định dạng file Excel import</div>
+    <div style="font-size:12px;color:#92400e">File cần có các cột: <b>Ngày</b> (dd/mm/yyyy) · <b>Loại</b> (Thu/Chi) · <b>Danh mục</b> · <b>Nội dung</b> · <b>Số tiền</b> (số nguyên)</div>
+  </div>
+
+  <!-- Bảng giao dịch -->
+  <div class="card">
+    <div class="tbl-wrap">
+      <table class="dtbl">
+        <thead><tr>
+          <th>Ngày</th><th>Loại</th><th>Danh mục</th><th>Nội dung</th>
+          <th class="num">Số tiền</th><th style="width:40px"></th>
+        </tr></thead>
+        <tbody>${rowsHTML}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal thêm thủ công -->
+  <div id="tc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center">
+    <div class="card" style="width:420px;padding:24px;margin:0">
+      <div style="font-weight:700;font-size:16px;margin-bottom:16px">Thêm giao dịch</div>
+      <div style="display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label style="font-size:12px;color:var(--text2)">Ngày</label><br>
+            <input id="tc-date" type="date" class="fi" value="${today()}" style="width:100%"></div>
+          <div><label style="font-size:12px;color:var(--text2)">Loại</label><br>
+            <select id="tc-type" class="fi" style="width:100%">
+              <option value="thu">💰 Thu</option><option value="chi">💸 Chi</option>
+            </select></div>
+        </div>
+        <div><label style="font-size:12px;color:var(--text2)">Danh mục</label><br>
+          <input id="tc-cat" class="fi" placeholder="VD: Bán hàng, Lương, NPL..." style="width:100%"></div>
+        <div><label style="font-size:12px;color:var(--text2)">Nội dung</label><br>
+          <input id="tc-note" class="fi" placeholder="Ghi chú..." style="width:100%"></div>
+        <div><label style="font-size:12px;color:var(--text2)">Số tiền (₫)</label><br>
+          <input id="tc-amount" type="number" class="fi" placeholder="0" min="0" style="width:100%"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <button class="btn btn-primary" onclick="saveThuChi()" style="flex:1">Lưu</button>
+        <button class="btn btn-sec" onclick="closeTCModal()" style="flex:1">Hủy</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function bindThuChi(){
+  // Xử lý đóng modal khi click nền
+  const modal=document.getElementById('tc-modal');
+  if(modal) modal.addEventListener('click',e=>{if(e.target===modal)modal.style.display='none';});
+}
+
+function openAddThuChi(){
+  document.getElementById('tc-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('tc-date').focus(),100);
+}
+function closeTCModal(){document.getElementById('tc-modal').style.display='none';}
+
+function saveThuChi(){
+  if(!db.thuChi) db.thuChi=[];
+  const date=document.getElementById('tc-date').value;
+  const type=document.getElementById('tc-type').value;
+  const cat=document.getElementById('tc-cat').value.trim();
+  const note=document.getElementById('tc-note').value.trim();
+  const amount=parseFloat(document.getElementById('tc-amount').value)||0;
+  if(!amount){alert('Vui lòng nhập số tiền!');return;}
+  // Chuyển date sang dd/mm/yyyy
+  const d=date?date.split('-').reverse().join('/'):today();
+  db.thuChi.unshift({date:d,type,category:cat,note,amount});
+  saveDB(); closeTCModal(); go('thuchi');
+}
+
+function delThuChi(idx){
+  if(!confirm('Xóa giao dịch này?')) return;
+  (db.thuChi||[]).splice(idx,1);
+  saveDB(); go('thuchi');
+}
+
+function importThuChi(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      // Tải SheetJS nếu chưa có
+      function processWB(XLSX){
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        if(!db.thuChi) db.thuChi=[];
+        let count=0;
+        // Bỏ dòng header (row 0), xử lý từ row 1
+        for(let i=1;i<rows.length;i++){
+          const r=rows[i];
+          if(!r||r.every(c=>!c)) continue;
+          const date=(r[0]||'').toString().trim();
+          const typeRaw=(r[1]||'').toString().toLowerCase().trim();
+          const type=typeRaw.includes('chi')?'chi':'thu';
+          const category=(r[2]||'').toString().trim();
+          const note=(r[3]||'').toString().trim();
+          const amount=parseFloat((r[4]||'').toString().replace(/[^0-9.]/g,''))||0;
+          if(!amount&&!note) continue;
+          // Chuyển date từ serial number Excel nếu cần
+          let dateStr=date;
+          if(/^\d{5}$/.test(date)){
+            const d=XLSX.SSF.parse_date_code(+date);
+            dateStr=`${String(d.d).padStart(2,'0')}/${String(d.m).padStart(2,'0')}/${d.y}`;
+          }
+          db.thuChi.unshift({date:dateStr,type,category,note,amount});
+          count++;
+        }
+        saveDB(); go('thuchi');
+        alert(`Import thành công ${count} giao dịch!`);
+      }
+      if(typeof XLSX!=='undefined'){processWB(XLSX);}
+      else{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload=()=>processWB(XLSX);
+        document.head.appendChild(s);
+      }
+    }catch(err){alert('Lỗi đọc file: '+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+  input.value='';
+}
+
 // ── DASHBOARD ──
 function pDash(){
   const P=db.products, M=db.materials, F=db.factories, O=db.orders;
@@ -680,6 +860,17 @@ function pDash(){
   // Sắp xếp tháng mới nhất trước
   const months=Object.keys(monthMap).sort((a,b)=>b>a?1:-1);
 
+  // SL theo xưởng
+  const facQtyMap={};
+  activeOrders.forEach(o=>{
+    const fac=o.facName||(GP(o.productId)?.processes||[])[0]?.facName||'Chưa chọn';
+    const qty=(o.colors||[]).filter(cl=>cl.siType!=='phu').reduce((s,cl)=>s+(cl.qty||0),0);
+    if(!facQtyMap[fac]) facQtyMap[fac]=0;
+    facQtyMap[fac]+=qty;
+  });
+  const facList=Object.entries(facQtyMap).sort((a,b)=>b[1]-a[1]);
+  const facColors2=['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4'];
+
   const statsBar=`
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
     <div class="stat-card">
@@ -698,21 +889,37 @@ function pDash(){
       <div style="font-size:11px;color:var(--text2);margin-top:2px">${cntAct} đơn đã nhập giá thực tế</div>
     </div>
   </div>
-  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
-    <div class="stat-card" style="border-color:#2563eb22;background:#eff6ff">
-      <div class="stat-lbl" style="color:#2563eb"><i class="ti ti-building-store" style="font-size:12px;vertical-align:-1px"></i> Doanh thu dự kiến</div>
-      <div style="font-size:18px;font-weight:700;color:#2563eb;margin-top:4px">${activeOrders.length?fmtN(totalRev)+' ₫':'—'}</div>
-      <div style="font-size:11px;color:#3b82f6;margin-top:2px">Giá bán đề xuất × SL Sỉ chính</div>
+  <!-- SL theo xưởng -->
+  ${facList.length?`<div class="card" style="padding:16px 20px;margin-bottom:18px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">
+      <i class="ti ti-building-factory-2" style="color:#f59e0b"></i> Sản lượng theo xưởng gia công
     </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+      ${facList.map(([fac,qty],i)=>{
+        const pct=totalQty>0?(qty/totalQty*100):0;
+        return`<div style="background:var(--bg2);border-radius:10px;padding:12px 14px">
+          <div style="font-size:11px;font-weight:600;color:${facColors2[i%6]};margin-bottom:4px">
+            <i class="ti ti-building-factory-2" style="font-size:10px"></i> ${fac}
+          </div>
+          <div style="font-size:20px;font-weight:700;color:var(--text)">${qty.toLocaleString('vi-VN')} <span style="font-size:12px;font-weight:400;color:var(--text2)">sp</span></div>
+          <div style="margin-top:6px;background:var(--border);border-radius:4px;height:5px">
+            <div style="background:${facColors2[i%6]};height:100%;width:${pct.toFixed(0)}%;border-radius:4px"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:3px">${pct.toFixed(1)}% tổng SL</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`:''}
+  <div class="stats-grid" style="grid-template-columns:repeat(2,1fr)">
     <div class="stat-card" style="border-color:#0891b222;background:#ecfeff">
       <div class="stat-lbl" style="color:#0891b2"><i class="ti ti-cash" style="font-size:12px;vertical-align:-1px"></i> Doanh thu thực tế</div>
       <div style="font-size:18px;font-weight:700;color:#0891b2;margin-top:4px">${cntAct?fmtN(totalRevAct)+' ₫':'—'}</div>
-      <div style="font-size:11px;color:#06b6d4;margin-top:2px">${cntAct?`So DT dự kiến: <b style="color:${totalRevAct>=totalRev?'#0891b2':'var(--danger)'}">${totalRev>0?((totalRevAct-totalRev)/totalRev*100).toFixed(1)+'%':'—'}</b>`:'Chưa có đơn nhập giá thực'}</div>
+      <div style="font-size:11px;color:#06b6d4;margin-top:2px">${cntAct?cntAct+' đơn đã nhập giá':'Chưa có đơn nhập giá thực'}</div>
     </div>
-    <div class="stat-card" style="border-color:#7c3aed22;background:#faf5ff">
-      <div class="stat-lbl" style="color:#7c3aed">LN dự kiến (tất cả đơn)</div>
-      <div style="font-size:18px;font-weight:700;color:#7c3aed;margin-top:4px">${activeOrders.length?fmtN(totalEst)+' ₫':'—'}</div>
-      <div style="font-size:11px;color:#9061c2;margin-top:2px">${totalRev>0?(totalEst/totalRev*100).toFixed(1)+'% doanh thu':''}</div>
+    <div class="stat-card" style="border-color:${totalAct>=0?'var(--success)':'var(--danger)'}22;background:${totalAct>=0?'var(--success-bg)':'var(--danger-bg)'}">
+      <div class="stat-lbl" style="color:${totalAct>=0?'var(--success)':'var(--danger)'}"><i class="ti ti-trending-up" style="font-size:12px;vertical-align:-1px"></i> Lợi nhuận thực tế</div>
+      <div style="font-size:18px;font-weight:700;color:${totalAct>=0?'var(--success)':'var(--danger)'};margin-top:4px">${cntAct?fmtN(totalAct)+' ₫':'—'}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px">${totalRevAct>0?(totalAct/totalRevAct*100).toFixed(1)+'% doanh thu':''}</div>
     </div>
   </div>`;
 
