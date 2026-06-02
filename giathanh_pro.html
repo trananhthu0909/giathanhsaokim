@@ -652,56 +652,99 @@ function pThuChi(){
   rows.forEach(r=>monthSet.add(getMonthKey(r.date)));
   const months=[...monthSet].filter(m=>m!=='00/0000').sort();
   const monthLabels=months.map(m=>{const[mm,yy]=m.split('/');return'T'+(+mm)+'/'+yy;});
-  const thuByMonth={};const chiByMonth={};const catSet=new Set();
-  months.forEach(m=>{thuByMonth[m]=0;chiByMonth[m]={};});
+
+  // Chi theo danh mục tổng hợp
+  const chiCatMap={};
+  const thuChanMap={};
+  const thuByMonth={};const chiByMonth={};
+  months.forEach(m=>{thuByMonth[m]=0;chiByMonth[m]=0;});
   rows.forEach(r=>{
-    const m=getMonthKey(r.date);if(!months.includes(m)) return;
-    const cat=r.category||'Khác';catSet.add(cat);
-    if(r.type==='thu') thuByMonth[m]+=(r.amount||0);
-    else{if(!chiByMonth[m])chiByMonth[m]={};chiByMonth[m][cat]=(chiByMonth[m][cat]||0)+(r.amount||0);}
+    const m=getMonthKey(r.date);
+    const cat=r.category||'Khác';
+    const note=r.note||'';
+    if(r.type==='thu'){
+      thuChanMap[note]=(thuChanMap[note]||0)+(r.amount||0);
+      if(months.includes(m)) thuByMonth[m]+=(r.amount||0);
+    } else {
+      chiCatMap[cat]=(chiCatMap[cat]||0)+(r.amount||0);
+      if(months.includes(m)) chiByMonth[m]+=(r.amount||0);
+    }
   });
-  const cats=[...catSet];
-  const chiTotalByMonth=months.map(m=>Object.values(chiByMonth[m]||{}).reduce((s,v)=>s+v,0));
+
+  const chiCats=Object.entries(chiCatMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const thuChans=Object.entries(thuChanMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+
+  const palette=['#185FA5','#f59e0b','#10b981','#E24B4A','#8b5cf6','#06b6d4','#f97316','#84cc16','#ec4899','#6366f1','#0F6E56','#B4B2A9','#534AB7'];
+
+  // SVG Donut chart
+  function mkDonut(entries,total,id){
+    if(!entries.length||!total) return '<div style="height:200px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px">Chưa có dữ liệu</div>';
+    const R=80,cx=110,cy=100,r=R,ri=50;
+    let angle=-Math.PI/2,paths='';
+    entries.forEach(([name,val],i)=>{
+      const pct=val/total;
+      const a=pct*2*Math.PI;
+      const x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
+      const x2=cx+r*Math.cos(angle+a),y2=cy+r*Math.sin(angle+a);
+      const xi1=cx+ri*Math.cos(angle),yi1=cy+ri*Math.sin(angle);
+      const xi2=cx+ri*Math.cos(angle+a),yi2=cy+ri*Math.sin(angle+a);
+      const lg=a>Math.PI?1:0;
+      const col=palette[i%palette.length];
+      paths+=`<path d="M ${xi1.toFixed(1)} ${yi1.toFixed(1)} L ${x1.toFixed(1)} ${y1.toFixed(1)} A ${r} ${r} 0 ${lg} 1 ${x2.toFixed(1)} ${y2.toFixed(1)} L ${xi2.toFixed(1)} ${yi2.toFixed(1)} A ${ri} ${ri} 0 ${lg} 0 ${xi1.toFixed(1)} ${yi1.toFixed(1)} Z" fill="${col}" opacity=".9"><title>${name}: ${(pct*100).toFixed(1)}%</title></path>`;
+      angle+=a;
+    });
+    return`<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+      <svg viewBox="0 0 220 200" style="width:200px;flex-shrink:0" id="${id}">${paths}
+        <text x="${cx}" y="${cy-6}" text-anchor="middle" font-size="11" fill="var(--text2)">Tổng</text>
+        <text x="${cx}" y="${cy+12}" text-anchor="middle" font-size="12" font-weight="500" fill="var(--text)">${(total/1e6).toFixed(0)}M</text>
+      </svg>
+      <div style="flex:1;min-width:160px;display:flex;flex-direction:column;gap:5px;padding-top:8px;max-height:200px;overflow-y:auto">
+        ${entries.map(([name,val],i)=>{
+          const pct=(val/total*100).toFixed(1);
+          return`<div style="display:flex;align-items:center;gap:6px;font-size:11px">
+            <span style="width:9px;height:9px;border-radius:2px;background:${palette[i%palette.length]};flex-shrink:0"></span>
+            <span style="flex:1;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${name}">${name}</span>
+            <span style="font-weight:500;color:var(--text);white-space:nowrap">${pct}%</span>
+            <span style="color:var(--text3);white-space:nowrap;font-size:10px">${(val/1e6).toFixed(0)}M</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Line chart thu/chi theo tháng
+  function mkLine2(thuArr,chiArr,labels){
+    const W=860,H=200,pad={t:16,r:16,b:32,l:64};
+    const n=labels.length;
+    if(n<1) return '<div style="height:120px;display:flex;align-items:center;justify-content:center;color:var(--text3)">Cần ít nhất 1 tháng dữ liệu</div>';
+    const max=Math.max(...thuArr,...chiArr,1);
+    const gW=W-pad.l-pad.r,gH=H-pad.t-pad.b;
+    let out='';
+    for(let i=0;i<=4;i++){
+      const v=max*i/4,y=H-pad.b-gH*i/4;
+      out+=`<text x="${pad.l-5}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--text3)">${v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(0)+'M':Math.round(v/1e3)+'K'}</text><line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="var(--border)" stroke-width="${i===0?1.5:.5}"/>`;
+    }
+    if(n===1){
+      // Cột đơn khi chỉ có 1 tháng
+      const cx=W/2;
+      const thH=gH*thuArr[0]/max,chH=gH*chiArr[0]/max;
+      out+=`<rect x="${cx-30}" y="${H-pad.b-thH}" width="26" height="${thH}" fill="#185FA5" rx="3"/>`;
+      out+=`<rect x="${cx+4}" y="${H-pad.b-chH}" width="26" height="${chH}" fill="#E24B4A" rx="3"/>`;
+      out+=`<text x="${cx}" y="${H-pad.b+16}" text-anchor="middle" font-size="10" fill="var(--text2)">${labels[0]}</text>`;
+    } else {
+      const xOf=i=>pad.l+i*gW/(n-1);
+      [[thuArr,'#185FA5'],[chiArr,'#E24B4A']].forEach(([arr,col])=>{
+        const pts=arr.map((v,i)=>[xOf(i).toFixed(1),(H-pad.b-gH*v/max).toFixed(1)]);
+        out+=`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round"/>`;
+        pts.forEach(([x,y],i)=>out+=`<circle cx="${x}" cy="${y}" r="4" fill="${col}" stroke="#fff" stroke-width="1.5"><title>${labels[i]}: ${fmtN(arr[i])}₫</title></circle>`);
+      });
+      labels.forEach((l,i)=>out+=`<text x="${xOf(i).toFixed(1)}" y="${H-pad.b+16}" text-anchor="middle" font-size="10" fill="var(--text2)">${l}</text>`);
+    }
+    return`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%">${out}</svg>`;
+  }
+
   const thuArr=months.map(m=>thuByMonth[m]||0);
-  const catColors=['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16','#ec4899'];
-
-  function mkLine(series,labels,colors){
-    const W=900,H=240,pad={t:20,r:20,b:36,l:72};
-    const n=labels.length;if(n<2) return '<div style="height:120px;display:flex;align-items:center;justify-content:center;color:var(--text3)">Cần ít nhất 2 tháng dữ liệu</div>';
-    const max=Math.max(...series.flatMap(s=>s),1);
-    const gW=W-pad.l-pad.r,gH=H-pad.t-pad.b;
-    let out='';
-    for(let i=0;i<=4;i++){const v=max*i/4,y=H-pad.b-gH*i/4;out+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--text3)">${v>=1e6?(v/1e6).toFixed(1)+'tr':Math.round(v/1000)+'k'}</text><line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="var(--border)" stroke-width="${i===0?1.5:.5}" stroke-dasharray="${i>0?'4,4':''}"/>`;}
-    labels.forEach((l,i)=>{const x=pad.l+i*gW/(n-1);out+=`<text x="${x}" y="${H-pad.b+16}" text-anchor="middle" font-size="10" fill="var(--text2)">${l}</text>`;});
-    series.forEach((data,si)=>{
-      const col=colors[si];
-      const pts=data.map((v,i)=>[(pad.l+i*gW/(n-1)).toFixed(1),(H-pad.b-gH*v/max).toFixed(1)]);
-      out+=`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round"/>`;
-      pts.forEach(([x,y],i)=>out+=`<circle cx="${x}" cy="${y}" r="4" fill="${col}" stroke="#fff" stroke-width="1.5"><title>${labels[i]}: ${fmtN(data[i])}₫</title></circle>`);
-    });
-    return`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%">${out}</svg>`;
-  }
-
-  function mkStackBar(catData,labels){
-    const W=900,H=220,pad={t:10,r:20,b:36,l:72};
-    const n=labels.length;if(!n) return '';
-    const totals=labels.map((_,i)=>catData.reduce((s,d)=>s+(d[i]||0),0));
-    const max=Math.max(...totals,1);
-    const gW=W-pad.l-pad.r,gH=H-pad.t-pad.b;
-    const bW=Math.min(40,gW/n*0.65);
-    let out='';
-    for(let i=0;i<=4;i++){const v=max*i/4,y=H-pad.b-gH*i/4;out+=`<text x="${pad.l-5}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--text3)">${v>=1e6?(v/1e6).toFixed(1)+'tr':Math.round(v/1000)+'k'}</text><line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="var(--border)" stroke-width="${i===0?1.5:.5}"/>`;}
-    labels.forEach((l,i)=>{
-      const cx=pad.l+i*gW/(n-1||1);let bot=H-pad.b;
-      out+=`<text x="${cx}" y="${H-pad.b+16}" text-anchor="middle" font-size="10" fill="var(--text2)">${l}</text>`;
-      catData.forEach((d,ci)=>{const v=d[i]||0;if(!v)return;const bH=gH*v/max,bY=bot-bH;out+=`<rect x="${(cx-bW/2).toFixed(1)}" y="${bY.toFixed(1)}" width="${bW}" height="${bH.toFixed(1)}" fill="${catColors[ci%catColors.length]}" rx="2" opacity=".85"><title>${cats[ci]}: ${fmtN(v)}₫</title></rect>`;bot=bY;});
-    });
-    return`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%">${out}</svg>`;
-  }
-
-  const catData=cats.map(cat=>months.map(m=>(chiByMonth[m]||{})[cat]||0));
-  const hasMon=months.length>=1;
-  const canDoiArr=months.map((m,i)=>(thuByMonth[m]||0)-chiTotalByMonth[i]);
+  const chiTotArr=months.map(m=>chiByMonth[m]||0);
 
   return`<div class="page-hdr">
     <div><div class="page-title"><i class="ti ti-wallet" style="color:#10b981"></i> Thu chi thực tế</div>
@@ -712,69 +755,102 @@ function pThuChi(){
       </label>
       <button class="btn btn-primary" onclick="openAddThuChi()"><i class="ti ti-plus"></i> Thêm</button>
       ${(!db.thuChi||db.thuChi.length===0)?'<button class="btn btn-sec" onclick="preloadThuChi()" style="border-color:#f59e0b;color:#92400e"><i class="ti ti-database-import"></i> Tải dữ liệu 2026</button>':''}
-      ${(db.thuChi&&db.thuChi.length>0)?'<button class="btn btn-sec" onclick="if(confirm(\'Xóa hết dữ liệu thu chi?\').valueOf()){db.thuChi=[];saveDB();go(\'thuchi\')}" style="color:var(--danger)"><i class="ti ti-trash"></i> Xóa tất cả</button>':''}
-    </div>
+      ${(db.thuChi&&db.thuChi.length>0)?'<button class="btn btn-sec" onclick="delAllThuChi()" style="color:var(--danger)"><i class="ti ti-trash"></i> Xóa tất cả</button>':''}
+    </div>>
   </div>
-  <div class="card" style="padding:10px 16px;margin-bottom:14px;background:#fffbeb;border-color:#fcd34d44">
-    <div style="font-size:12px;color:#92400e"><b>📋 Format Excel:</b> Cột A: Ngày · B: Loại (Thu/Chi) · C: Định khoản · D: Nội dung · E: Số tiền</div>
-  </div>
+
+  <!-- KPI cards -->
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:18px">
-    <div class="stat-card" style="background:#d1fae5;border-color:#34d39933"><div class="stat-lbl" style="color:#065f46">💰 Tổng Thu</div><div style="font-size:22px;font-weight:700;color:#065f46">${fmt(totalThu)}</div></div>
-    <div class="stat-card" style="background:#fee2e2;border-color:#f8717133"><div class="stat-lbl" style="color:#991b1b">💸 Tổng Chi</div><div style="font-size:22px;font-weight:700;color:#991b1b">${fmt(totalChi)}</div></div>
-    <div class="stat-card" style="background:${canDoi>=0?'#eff6ff':'#fef2f2'};border-color:${canDoi>=0?'#2563eb':'#ef4444'}33"><div class="stat-lbl" style="color:${canDoi>=0?'#2563eb':'#991b1b'}">⚖️ Cân đối</div><div style="font-size:22px;font-weight:700;color:${canDoi>=0?'#2563eb':'#991b1b'}">${canDoi>=0?'+':''}${fmt(canDoi)}</div></div>
-  </div>
-  ${!hasMon?`<div class="card" style="padding:40px;text-align:center;color:var(--text3)"><i class="ti ti-chart-line" style="font-size:36px;display:block;margin-bottom:12px"></i>Chưa có dữ liệu. Import file Excel để xem báo cáo.</div>`:`
-  <div class="card" style="padding:20px;margin-bottom:14px">
-    <div style="font-weight:700;font-size:14px;margin-bottom:8px"><i class="ti ti-chart-line" style="color:#10b981"></i> Thu & Chi theo tháng</div>
-    <div style="margin-bottom:8px"><span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;margin-right:14px"><span style="width:22px;height:3px;background:#10b981;display:inline-block;border-radius:2px"></span>Thu</span><span style="display:inline-flex;align-items:center;gap:5px;font-size:12px"><span style="width:22px;height:3px;background:#ef4444;display:inline-block;border-radius:2px"></span>Chi</span></div>
-    ${mkLine([thuArr,chiTotalByMonth],monthLabels,['#10b981','#ef4444'])}
-  </div>
-  <div class="card" style="padding:20px;margin-bottom:14px">
-    <div style="font-weight:700;font-size:14px;margin-bottom:8px"><i class="ti ti-trending-up" style="color:#6366f1"></i> Cân đối Thu - Chi theo tháng</div>
-    ${mkLine([canDoiArr],monthLabels,['#6366f1'])}
-  </div>
-  ${cats.length?`<div class="card" style="padding:20px;margin-bottom:14px">
-    <div style="font-weight:700;font-size:14px;margin-bottom:8px"><i class="ti ti-chart-bar" style="color:#f59e0b"></i> Chi phí theo định khoản từng tháng</div>
-    <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:6px">${cats.map((c,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px"><span style="width:10px;height:10px;border-radius:2px;background:${catColors[i%catColors.length]};display:inline-block"></span>${c}</span>`).join('')}</div>
-    ${mkStackBar(catData,monthLabels)}
-  </div>`:''}
-  <div class="card" style="padding:20px;margin-bottom:14px">
-    <div style="font-weight:700;font-size:14px;margin-bottom:10px"><i class="ti ti-table"></i> Chi tiết theo tháng</div>
-    <div class="tbl-wrap"><table class="dtbl"><thead><tr><th>Tháng</th><th class="num">Thu</th><th class="num">Chi</th>${cats.map(c=>`<th class="num" style="font-size:10px">${c}</th>`).join('')}<th class="num">Cân đối</th></tr></thead>
-    <tbody>${months.map((m,mi)=>{const thu=thuByMonth[m]||0,chi=chiTotalByMonth[mi],cd=thu-chi,pts=m.split('/');return`<tr><td style="font-weight:600">T${+pts[0]}/${pts[1]}</td><td class="num" style="color:var(--success)">${fmt(thu)}</td><td class="num" style="color:var(--danger)">${fmt(chi)}</td>${cats.map(c=>`<td class="num" style="font-size:12px;color:var(--text2)">${(chiByMonth[m]||{})[c]?fmt((chiByMonth[m]||{})[c]):'—'}</td>`).join('')}<td class="num" style="font-weight:700;color:${cd>=0?'#2563eb':'var(--danger)'}">${cd>=0?'+':''}${fmt(cd)}</td></tr>`;}).join('')}</tbody></table></div>
-  </div>`}
-  <div class="card">
-    <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-      <div style="font-weight:700">Danh sách giao dịch (${rows.length})</div>
-      ${rows.length?`<button class="btn btn-danger btn-sm" onclick="if(confirm('Xóa tất cả?')){db.thuChi=[];saveDB();go('thuchi');}">🗑 Xóa tất cả</button>`:''}
+    <div class="stat-card" style="background:#d1fae5;border-color:#34d39933">
+      <div class="stat-lbl" style="color:#065f46">💰 Tổng Thu</div>
+      <div style="font-size:22px;font-weight:700;color:#065f46">${fmt(totalThu)}</div>
     </div>
-    <div class="tbl-wrap" style="max-height:380px;overflow-y:auto"><table class="dtbl">
-      <thead><tr><th>Ngày</th><th>Loại</th><th>Định khoản</th><th>Nội dung</th><th class="num">Số tiền</th><th></th></tr></thead>
-      <tbody>${rows.length===0?`<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chưa có dữ liệu</td></tr>`:rows.map((r,i)=>`<tr><td style="font-size:12px">${r.date||'—'}</td><td><span style="font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;background:${r.type==='thu'?'#d1fae5':'#fee2e2'};color:${r.type==='thu'?'#065f46':'#991b1b'}">${r.type==='thu'?'💰 Thu':'💸 Chi'}</span></td><td style="font-size:12px;color:var(--text2)">${r.category||'—'}</td><td style="font-size:12px">${r.note||'—'}</td><td class="num" style="font-weight:700;color:${r.type==='thu'?'var(--success)':'var(--danger)'}">${r.type==='thu'?'+':'-'}${fmtN(r.amount||0)}₫</td><td><button class="btn btn-danger btn-sm" onclick="delThuChi(${i})"><i class="ti ti-trash"></i></button></td></tr>`).join('')}</tbody>
-    </table></div>
+    <div class="stat-card" style="background:#fee2e2;border-color:#f8717133">
+      <div class="stat-lbl" style="color:#991b1b">💸 Tổng Chi</div>
+      <div style="font-size:22px;font-weight:700;color:#991b1b">${fmt(totalChi)}</div>
+    </div>
+    <div class="stat-card" style="background:${canDoi>=0?'#eff6ff':'#fef2f2'};border-color:${canDoi>=0?'#2563eb':'#ef4444'}33">
+      <div class="stat-lbl" style="color:${canDoi>=0?'#2563eb':'#991b1b'}">⚖️ Cân đối</div>
+      <div style="font-size:22px;font-weight:700;color:${canDoi>=0?'#2563eb':'#991b1b'}">${canDoi>=0?'+':''}${fmt(canDoi)}</div>
+    </div>
   </div>
+
+  <!-- Biểu đồ đường thu/chi theo tháng -->
+  ${months.length>0?`<div class="card" style="padding:16px 20px;margin-bottom:16px">
+    <div style="font-size:13px;font-weight:500;color:var(--text2);margin-bottom:10px;display:flex;gap:16px;align-items:center">
+      <span><i class="ti ti-chart-line" style="color:#10b981"></i> Thu & Chi theo tháng</span>
+      <span style="display:flex;gap:12px;font-size:11px">
+        <span><span style="display:inline-block;width:10px;height:3px;background:#185FA5;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Doanh thu</span>
+        <span><span style="display:inline-block;width:10px;height:3px;background:#E24B4A;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Chi phí</span>
+      </span>
+    </div>
+    ${mkLine2(thuArr,chiTotArr,monthLabels)}
+  </div>`:''}
+
+  <!-- 2 biểu đồ tròn -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+    <div class="card" style="padding:16px 20px">
+      <div style="font-size:13px;font-weight:500;color:var(--text2);margin-bottom:12px">
+        <i class="ti ti-chart-pie" style="color:#E24B4A"></i> Cơ cấu chi phí
+      </div>
+      ${mkDonut(chiCats,totalChi,'donut-chi')}
+    </div>
+    <div class="card" style="padding:16px 20px">
+      <div style="font-size:13px;font-weight:500;color:var(--text2);margin-bottom:12px">
+        <i class="ti ti-chart-pie" style="color:#185FA5"></i> Doanh thu theo kênh
+      </div>
+      ${mkDonut(thuChans,totalThu,'donut-thu')}
+    </div>
+  </div>
+
+  <!-- Bảng tóm tắt chi phí theo danh mục -->
+  <div class="card" style="padding:16px 20px;margin-bottom:18px">
+    <div style="font-size:13px;font-weight:500;color:var(--text2);margin-bottom:12px"><i class="ti ti-list"></i> Chi tiết chi phí theo định khoản</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${chiCats.map(([cat,val],i)=>{
+        const pct=(val/totalChi*100).toFixed(1);
+        const barW=(val/totalChi*100).toFixed(0);
+        return`<div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span style="color:var(--text);font-weight:500">${cat}</span>
+            <span style="color:${palette[i%palette.length]};font-weight:600">${pct}% &nbsp;·&nbsp; <span style="color:var(--text2)">${fmt(val)}</span></span>
+          </div>
+          <div style="background:var(--bg2);border-radius:4px;height:6px;overflow:hidden">
+            <div style="background:${palette[i%palette.length]};height:100%;width:${barW}%;border-radius:4px"></div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+
+  <!-- Modal thêm thủ công -->
   <div id="tc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center">
-    <div class="card" style="width:440px;padding:24px;margin:0">
+    <div class="card" style="width:420px;padding:24px;margin:0">
       <div style="font-weight:700;font-size:16px;margin-bottom:16px">Thêm giao dịch</div>
       <div style="display:grid;gap:12px">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div><label style="font-size:12px;color:var(--text2)">Ngày</label><br><input id="tc-date" type="date" class="fi" value="${today()}" style="width:100%"></div>
-          <div><label style="font-size:12px;color:var(--text2)">Loại</label><br><select id="tc-type" class="fi" style="width:100%"><option value="thu">💰 Thu</option><option value="chi">💸 Chi</option></select></div>
+          <div><label style="font-size:12px;color:var(--text2)">Ngày</label><br>
+            <input id="tc-date" type="date" class="fi" value="${today()}" style="width:100%"></div>
+          <div><label style="font-size:12px;color:var(--text2)">Loại</label><br>
+            <select id="tc-type" class="fi" style="width:100%">
+              <option value="thu">💰 Thu</option><option value="chi">💸 Chi</option>
+            </select></div>
         </div>
-        <div><label style="font-size:12px;color:var(--text2)">Định khoản</label><br><input id="tc-cat" class="fi" placeholder="VD: Bán hàng, NPL..." style="width:100%"></div>
-        <div><label style="font-size:12px;color:var(--text2)">Nội dung</label><br><input id="tc-note" class="fi" placeholder="Ghi chú..." style="width:100%"></div>
-        <div><label style="font-size:12px;color:var(--text2)">Số tiền (₫)</label><br><input id="tc-amount" type="number" class="fi" placeholder="0" min="0" style="width:100%"></div>
+        <div><label style="font-size:12px;color:var(--text2)">Danh mục</label><br>
+          <input id="tc-cat" class="fi" placeholder="VD: CP Gia công, Doanh thu..." style="width:100%"></div>
+        <div><label style="font-size:12px;color:var(--text2)">Nội dung</label><br>
+          <input id="tc-note" class="fi" placeholder="Ghi chú..." style="width:100%"></div>
+        <div><label style="font-size:12px;color:var(--text2)">Số tiền (₫)</label><br>
+          <input id="tc-amount" type="number" class="fi" placeholder="0" min="0" style="width:100%"></div>
       </div>
-      <div style="display:flex;gap:8px;margin-top:18px"><button class="btn btn-primary" onclick="saveThuChi()" style="flex:1">Lưu</button><button class="btn btn-sec" onclick="closeTCModal()" style="flex:1">Hủy</button></div>
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <button class="btn btn-primary" onclick="saveThuChi()" style="flex:1">Lưu</button>
+        <button class="btn btn-sec" onclick="closeTCModal()" style="flex:1">Hủy</button>
+      </div>
     </div>
-  </div>`;}
-function preloadThuChi(){
-  // Data từ file THU-CHI 2026 (178 giao dịch T1-T5/2026)
-  if(!db.thuChi||db.thuChi.length===0){
-    db.thuChi=[{"date": "01/05/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "THUÊ VP", "amount": 27000000}, {"date": "01/05/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "ĐIỆN VP", "amount": 3144701}, {"date": "01/05/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "NƯỚC  VP", "amount": 395712}, {"date": "01/05/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X1", "amount": 50000000}, {"date": "01/05/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X2", "amount": 15721000}, {"date": "01/05/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X8", "amount": 18765000}, {"date": "01/05/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X9", "amount": 50591100}, {"date": "01/05/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "VĨNH HÀO", "amount": 20600000}, {"date": "01/05/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "THIÊN MÃ", "amount": 7490000}, {"date": "01/05/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "HOÀN CẦU", "amount": 18105000}, {"date": "01/05/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI XUYẾN", "amount": 29096000}, {"date": "01/05/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI NGHỊ THẮNG", "amount": 37656000}, {"date": "01/04/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "THUÊ VP", "amount": 27000000}, {"date": "01/04/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "ĐIỆN VP", "amount": 3983796}, {"date": "01/04/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "NƯỚC  VP", "amount": 477854}, {"date": "01/04/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "ĐIỆN THOẠI", "amount": 182000}, {"date": "01/04/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "CÚNG", "amount": 600000}, {"date": "01/04/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X1", "amount": 142323988}, {"date": "01/04/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X2", "amount": 45000000}, {"date": "01/04/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X8", "amount": 21158000}, {"date": "01/04/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X9", "amount": 179564200}, {"date": "01/04/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "VĨNH HÀO", "amount": 32972000}, {"date": "01/04/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "THIÊN MÃ", "amount": 6870000}, {"date": "01/04/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "HOÀN CẦU", "amount": 742000}, {"date": "01/04/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "UYEN BINH", "amount": 1036000}, {"date": "01/04/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI XUYẾN", "amount": 28025000}, {"date": "01/04/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI THÁI", "amount": 10000000}, {"date": "01/04/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI NGHỊ THẮNG", "amount": 101941000}, {"date": "01/04/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "LÓT HUỲNH VÂN", "amount": 16000000}, {"date": "01/04/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "MUA HÀNG NGOÀI", "amount": 94671105}, {"date": "01/04/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "MUA KHÁC", "amount": 3192300}, {"date": "01/04/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "THÙNG CARTON", "amount": 4968000}, {"date": "01/04/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "BAO BÌ", "amount": 598000}, {"date": "01/04/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "PHỤ KIỆN BÁN HÀNG", "amount": 50000}, {"date": "01/04/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "IN TEM AEON", "amount": 500000}, {"date": "01/04/2026", "type": "chi", "category": "CP KHÁC", "note": "CP KHÁC", "amount": 1891000}, {"date": "01/04/2026", "type": "chi", "category": "CP KHÁC", "note": "GIAO NHẬN CHO ONL (GHN)", "amount": 492000}, {"date": "01/04/2026", "type": "chi", "category": "CP GIAO NHẬN", "note": "GIAO NHẬN CTY", "amount": 3725000}, {"date": "01/04/2026", "type": "chi", "category": "CP GIAO NHẬN", "note": "GIAO NHẬN ANH TRUNG", "amount": 13820600}, {"date": "01/04/2026", "type": "chi", "category": "CP HOÁ ĐƠNDỊCH VỤ", "note": "CÁT TƯỜNG", "amount": 9768000}, {"date": "01/04/2026", "type": "chi", "category": "Thuê gian hang", "note": "THUÊ GIAN HÀNG", "amount": 28770000}, {"date": "01/04/2026", "type": "chi", "category": "CP LƯƠNG NV PG", "note": "CP LƯƠNG NV PG", "amount": 1944000}, {"date": "01/04/2026", "type": "chi", "category": "HỖ TRỢ NV", "note": "HỖ TRỢ NV", "amount": 225000}, {"date": "01/04/2026", "type": "chi", "category": "CP SỮA CHỮA", "note": "SỬA CHỮA", "amount": 2080000}, {"date": "01/04/2026", "type": "chi", "category": "CP BẢO HIỂM", "note": "CP BẢO HIỂM", "amount": 33024000}, {"date": "01/04/2026", "type": "chi", "category": "VAT", "note": "VAT", "amount": 27186581}, {"date": "01/04/2026", "type": "chi", "category": "CP LÃI VAY", "note": "CP LÃI VAY", "amount": 89149000}, {"date": "01/04/2026", "type": "thu", "category": "Doanh thu", "note": "Aeon", "amount": 1174199820}, {"date": "01/04/2026", "type": "thu", "category": "Doanh thu", "note": "Emart", "amount": 283843134}, {"date": "01/04/2026", "type": "thu", "category": "Doanh thu", "note": "Online", "amount": 13918081}, {"date": "01/04/2026", "type": "thu", "category": "Doanh thu", "note": "Gumac", "amount": 10599120}, {"date": "01/04/2026", "type": "thu", "category": "Doanh thu", "note": "Khác", "amount": 16940000}, {"date": "01/03/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "THUÊ VP", "amount": 27000000}, {"date": "01/03/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "ĐIỆN VP", "amount": 1627560}, {"date": "01/03/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "NƯỚC  VP", "amount": 693069}, {"date": "01/03/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "ĐIỆN THOẠI", "amount": 776724}, {"date": "01/03/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "INTERNET", "amount": 660000}, {"date": "01/03/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "CÚNG", "amount": 1558000}, {"date": "01/03/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X1", "amount": 87075080}, {"date": "01/03/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X2", "amount": 11000000}, {"date": "01/03/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X8", "amount": 20000000}, {"date": "01/03/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X9", "amount": 94757400}, {"date": "01/03/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "VĨNH HÀO", "amount": 45752300}, {"date": "01/03/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "THIÊN MÃ", "amount": 1980000}, {"date": "01/03/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "HOÀN CẦU", "amount": 40000000}, {"date": "01/03/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI XUYẾN", "amount": 29000000}, {"date": "01/03/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI LỆ MỸ", "amount": 17269200}, {"date": "01/03/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI NGHỊ THẮNG", "amount": 109968000}, {"date": "01/03/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "LÓT HUỲNH VÂN", "amount": 9700000}, {"date": "01/03/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "LÓT KHÁC", "amount": 11709000}, {"date": "01/03/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "MUA HÀNG NGOÀI", "amount": 14800000}, {"date": "01/03/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "TEM CARD", "amount": 5000000}, {"date": "01/03/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "DÂY TREO", "amount": 960000}, {"date": "01/03/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "THÙNG CARTON", "amount": 4400000}, {"date": "01/03/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "BAO BÌ", "amount": 546000}, {"date": "01/03/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "PHỤ KIỆN BÁN HÀNG", "amount": 510000}, {"date": "01/03/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "IN TEM AEON", "amount": 792000}, {"date": "01/03/2026", "type": "chi", "category": "CP VPP CTY", "note": "MUA VPP", "amount": 539000}, {"date": "01/03/2026", "type": "chi", "category": "CP KHÁC", "note": "CP KHÁC", "amount": 11630000}, {"date": "01/03/2026", "type": "chi", "category": "CP KHÁC", "note": "GIAO NHẬN CHO ONL (GHN)", "amount": 212000}, {"date": "01/03/2026", "type": "chi", "category": "CP GIAO NHẬN", "note": "GIAO NHẬN CTY", "amount": 2103000}, {"date": "01/03/2026", "type": "chi", "category": "CP GIAO NHẬN", "note": "GIAO NHẬN ANH TRUNG", "amount": 4935000}, {"date": "01/03/2026", "type": "chi", "category": "CP HOÁ ĐƠNDỊCH VỤ", "note": "CÁT TƯỜNG", "amount": 2000000}, {"date": "01/03/2026", "type": "chi", "category": "CP HOÁ ĐƠNDỊCH VỤ", "note": "GIA HẠN TÊN MIỀN", "amount": 816000}, {"date": "01/03/2026", "type": "chi", "category": "Thuê gian hang", "note": "THUÊ GIAN HÀNG", "amount": 5000000}, {"date": "01/03/2026", "type": "chi", "category": "CP LƯƠNG NV PG", "note": "CP LƯƠNG NV PG", "amount": 15802000}, {"date": "01/03/2026", "type": "chi", "category": "HỖ TRỢ NV", "note": "HỖ TRỢ NV", "amount": 2000000}, {"date": "01/03/2026", "type": "chi", "category": "CP SỮA CHỮA", "note": "SỬA CHỮA", "amount": 100000}, {"date": "01/03/2026", "type": "chi", "category": "CP BẢO HIỂM", "note": "CP BẢO HIỂM", "amount": 16512000}, {"date": "01/03/2026", "type": "chi", "category": "VAT", "note": "VAT", "amount": 26282899}, {"date": "01/03/2026", "type": "chi", "category": "CP LÃI VAY", "note": "CP LÃI VAY", "amount": 97866000}, {"date": "01/03/2026", "type": "thu", "category": "Doanh thu", "note": "Aeon", "amount": 265955000}, {"date": "01/03/2026", "type": "thu", "category": "Doanh thu", "note": "Emart", "amount": 198154000}, {"date": "01/03/2026", "type": "thu", "category": "Doanh thu", "note": "Online", "amount": 5447000}, {"date": "01/03/2026", "type": "thu", "category": "Doanh thu", "note": "Gumac", "amount": 170825000}, {"date": "01/03/2026", "type": "thu", "category": "Doanh thu", "note": "Khác", "amount": 52389000}, {"date": "01/02/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "THUÊ VP", "amount": 27000000}, {"date": "01/02/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X1", "amount": 185197000}, {"date": "01/02/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X2", "amount": 47018000}, {"date": "01/02/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X3", "amount": 31280000}, {"date": "01/02/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X8", "amount": 137475000}, {"date": "01/02/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X9", "amount": 94962000}, {"date": "01/02/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "VĨNH HÀO", "amount": 63300000}, {"date": "01/02/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "HOÀN CẦU", "amount": 29951000}, {"date": "01/02/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "UYEN BINH", "amount": 875000}, {"date": "01/02/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI XUYẾN", "amount": 43513058}, {"date": "01/02/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI LỆ MỸ", "amount": 16005000}, {"date": "01/02/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI THÁI", "amount": 30000000}, {"date": "01/02/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI NGHỊ THẮNG", "amount": 90239333}, {"date": "01/02/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "MINH BỘI", "amount": 2484000}, {"date": "01/02/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "LÓT HUỲNH VÂN", "amount": 3800000}, {"date": "01/02/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "MUA HÀNG NGOÀI", "amount": 35607000}, {"date": "01/02/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "DÂY TREO", "amount": 45000}, {"date": "01/02/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "THÙNG CARTON", "amount": 4400000}, {"date": "01/02/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "BAO BÌ", "amount": 462000}, {"date": "01/02/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "IN ẤN BẢNG HIỆU", "amount": 366000}, {"date": "01/02/2026", "type": "chi", "category": "CP KHÁC", "note": "CP KHÁC", "amount": 29000}, {"date": "01/02/2026", "type": "chi", "category": "CP KHÁC", "note": "GIAO NHẬN CHO ONL (GHN)", "amount": 95000}, {"date": "01/02/2026", "type": "chi", "category": "CP GIAO NHẬN", "note": "GIAO NHẬN CTY", "amount": 1159000}, {"date": "01/02/2026", "type": "chi", "category": "CP GIAO NHẬN", "note": "GIAO NHẬN ANH TRUNG", "amount": 15975000}, {"date": "01/02/2026", "type": "chi", "category": "Thuê gian hang", "note": "THUÊ GIAN HÀNG", "amount": 6000000}, {"date": "01/02/2026", "type": "chi", "category": "CP LƯƠNG NV PG", "note": "CP LƯƠNG NV PG", "amount": 21208970}, {"date": "01/02/2026", "type": "chi", "category": "HỖ TRỢ NV", "note": "HỖ TRỢ NV", "amount": 6000000}, {"date": "01/02/2026", "type": "chi", "category": "CP LIVE + Share", "note": "CP LIVE + Share", "amount": 5250000}, {"date": "01/02/2026", "type": "chi", "category": "VAT", "note": "VAT", "amount": 15821194}, {"date": "01/02/2026", "type": "chi", "category": "CP LÃI VAY", "note": "CP LÃI VAY", "amount": 92866000}, {"date": "01/02/2026", "type": "thu", "category": "Doanh thu", "note": "Aeon", "amount": 554727000}, {"date": "01/02/2026", "type": "thu", "category": "Doanh thu", "note": "Emart", "amount": 294389148}, {"date": "01/02/2026", "type": "thu", "category": "Doanh thu", "note": "Xuất khẩu", "amount": 105840000}, {"date": "01/02/2026", "type": "thu", "category": "Doanh thu", "note": "Online", "amount": 7618629}, {"date": "01/02/2026", "type": "thu", "category": "Doanh thu", "note": "Gumac", "amount": 43158780}, {"date": "01/02/2026", "type": "thu", "category": "Doanh thu", "note": "Khác", "amount": 68227000}, {"date": "01/01/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "THUÊ VP", "amount": 27000000}, {"date": "01/01/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "ĐIỆN VP", "amount": 1661191}, {"date": "01/01/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "NƯỚC  VP", "amount": 531285}, {"date": "01/01/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "ĐIỆN THOẠI", "amount": 560000}, {"date": "01/01/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "INTERNET", "amount": 8100000}, {"date": "01/01/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "RÁC", "amount": 250000}, {"date": "01/01/2026", "type": "chi", "category": "CP CỐ ĐỊNH", "note": "CÚNG", "amount": 600000}, {"date": "01/01/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X1", "amount": 154634502}, {"date": "01/01/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X2", "amount": 40000000}, {"date": "01/01/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X8", "amount": 180000000}, {"date": "01/01/2026", "type": "chi", "category": "CP GIA CÔNG", "note": "X9", "amount": 177136200}, {"date": "01/01/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "VĨNH HÀO", "amount": 89300000}, {"date": "01/01/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "HOÀN CẦU", "amount": 42340000}, {"date": "01/01/2026", "type": "chi", "category": "CP MUA NVL (PHỤ KIỆN)", "note": "UYEN BINH", "amount": 2022000}, {"date": "01/01/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI XUYẾN", "amount": 20010000}, {"date": "01/01/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI LỆ MỸ", "amount": 13689000}, {"date": "01/01/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI THÁI", "amount": 36496000}, {"date": "01/01/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI NGHỊ THẮNG", "amount": 97770000}, {"date": "01/01/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "SI ĐỆM", "amount": 1408000}, {"date": "01/01/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "EVA", "amount": 6973000}, {"date": "01/01/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "GIẤY NHỒI", "amount": 5175000}, {"date": "01/01/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "ZIP+KEO CHỐNG TRẦY", "amount": 500000}, {"date": "01/01/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "LÓT HUỲNH VÂN", "amount": 7226500}, {"date": "01/01/2026", "type": "chi", "category": "CP MUA NVL ( SI )", "note": "MUA HÀNG NGOÀI", "amount": 37758000}, {"date": "01/01/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "TEM CARD", "amount": 5085000}, {"date": "01/01/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "DÂY TREO", "amount": 960000}, {"date": "01/01/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "THÙNG CARTON", "amount": 2000000}, {"date": "01/01/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "BAO BÌ", "amount": 2000000}, {"date": "01/01/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "PHỤ KIỆN BÁN HÀNG", "amount": 739000}, {"date": "01/01/2026", "type": "chi", "category": "CP CHI MUA PHỤ KIỆN BÁN HÀNG", "note": "IN TEM AEON", "amount": 100000}, {"date": "01/01/2026", "type": "chi", "category": "CP VPP CTY", "note": "MUA VPP", "amount": 2406000}, {"date": "01/01/2026", "type": "chi", "category": "CP KHÁC", "note": "CP KHÁC", "amount": 11396000}, {"date": "01/01/2026", "type": "chi", "category": "CP GIAO NHẬN", "note": "GIAO NHẬN CTY", "amount": 1807000}, {"date": "01/01/2026", "type": "chi", "category": "CP GIAO NHẬN", "note": "GIAO NHẬN ANH TRUNG", "amount": 11155000}, {"date": "01/01/2026", "type": "chi", "category": "CP HOÁ ĐƠNDỊCH VỤ", "note": "CÁT TƯỜNG", "amount": 8800000}, {"date": "01/01/2026", "type": "chi", "category": "CP HOÁ ĐƠNDỊCH VỤ", "note": "B2B", "amount": 735480}, {"date": "01/01/2026", "type": "chi", "category": "CP LƯƠNG NV PG", "note": "CP LƯƠNG NV PG", "amount": 7625000}, {"date": "01/01/2026", "type": "chi", "category": "HỖ TRỢ NV", "note": "HỖ TRỢ NV", "amount": 6506000}, {"date": "01/01/2026", "type": "chi", "category": "CP SỮA CHỮA", "note": "SỬA CHỮA", "amount": 1305000}, {"date": "01/01/2026", "type": "chi", "category": "VAT", "note": "VAT", "amount": 32812443}, {"date": "01/01/2026", "type": "chi", "category": "CP LÃI VAY", "note": "CP LÃI VAY", "amount": 93038900}, {"date": "01/01/2026", "type": "thu", "category": "Doanh thu", "note": "Aeon", "amount": 797054819}, {"date": "01/01/2026", "type": "thu", "category": "Doanh thu", "note": "Emart", "amount": 221502901}, {"date": "01/01/2026", "type": "thu", "category": "Doanh thu", "note": "Online", "amount": 5361000}, {"date": "01/01/2026", "type": "thu", "category": "Doanh thu", "note": "Gumac", "amount": 42376950}, {"date": "01/01/2026", "type": "thu", "category": "Doanh thu", "note": "Khác", "amount": 95014000}];
-    saveDB();go('thuchi');
-  }
+  </div>`;
 }
+function delAllThuChi(){if(confirm('Xóa toàn bộ dữ liệu thu chi?')){db.thuChi=[];saveDB();go('thuchi');}}
 function bindThuChi(){const modal=document.getElementById('tc-modal');if(modal)modal.addEventListener('click',e=>{if(e.target===modal)modal.style.display='none';});}
 
 
