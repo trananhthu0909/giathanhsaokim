@@ -1231,6 +1231,7 @@ function pPhaiThu(){
             <span style="color:var(--text3);white-space:nowrap;min-width:80px">${r.date||'—'}</span>
             <span style="flex:1;color:var(--text2)">${r.note||'Thu tiền'}</span>
             <span style="font-weight:700;color:var(--success);white-space:nowrap">+${fmt(r.amount||0)}</span>
+            <button onclick="editReceipt('${item.id}','${r.id}')" style="border:1px solid var(--border2);background:var(--bg);border-radius:4px;cursor:pointer;color:var(--text2);padding:1px 6px;font-size:11px" title="Sửa"><i class="ti ti-edit" style="font-size:10px"></i></button>
             <button onclick="delReceipt('${item.id}','${r.id}')" style="border:none;background:none;cursor:pointer;color:var(--text3);padding:0 2px;font-size:14px;line-height:1" title="Xóa">×</button>
           </div>`).join('')}
         </div>
@@ -1317,9 +1318,10 @@ function pPhaiThu(){
   <!-- Modal thu tiền -->
   <div id="receipt-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
     <div class="card" style="width:420px;padding:24px;margin:0">
-      <div style="font-weight:700;font-size:16px;margin-bottom:4px">Cập nhật thu tiền</div>
+      <div style="font-weight:700;font-size:16px;margin-bottom:4px" id="receipt-modal-title">Cập nhật thu tiền</div>
       <div style="font-size:13px;color:#10b981;margin-bottom:16px" id="receipt-partner-name"></div>
       <input type="hidden" id="receipt-pt-id">
+      <input type="hidden" id="receipt-r-id">
       <div style="display:grid;gap:12px">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div><label class="fl">Ngày thu</label>
@@ -1424,6 +1426,8 @@ function openAddReceipt(ptId){
   initPhaiThu();
   const item=db.phaiThu.find(x=>x.id===ptId);if(!item)return;
   document.getElementById('receipt-pt-id').value=ptId;
+  document.getElementById('receipt-r-id').value='';
+  document.getElementById('receipt-modal-title').textContent='Ghi nhận thu tiền';
   document.getElementById('receipt-partner-name').textContent=item.name;
   document.getElementById('receipt-date').value=today();
   document.getElementById('receipt-amount').value='';
@@ -1433,17 +1437,43 @@ function openAddReceipt(ptId){
   setTimeout(()=>{document.getElementById('receipt-amount').focus();updateReceiptPreview();},100);
 }
 
+function editReceipt(ptId,rId){
+  initPhaiThu();
+  const item=db.phaiThu.find(x=>x.id===ptId);if(!item)return;
+  const r=(item.receipts||[]).find(x=>x.id===rId);if(!r)return;
+  document.getElementById('receipt-pt-id').value=ptId;
+  document.getElementById('receipt-r-id').value=rId;
+  document.getElementById('receipt-modal-title').textContent='Sửa lần thu tiền';
+  document.getElementById('receipt-partner-name').textContent=item.name;
+  // Chuyển dd/mm/yyyy → yyyy-mm-dd cho input[type=date]
+  const dp=(r.date||'').split('/');
+  document.getElementById('receipt-date').value=dp.length===3?`${dp[2]}-${dp[1]}-${dp[0]}`:today();
+  document.getElementById('receipt-amount').value=r.amount||'';
+  document.getElementById('receipt-note').value=r.note||'';
+  document.getElementById('receipt-preview').style.display='none';
+  document.getElementById('receipt-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('receipt-amount').focus(),100);
+}
+
 function saveReceipt(){
   initPhaiThu();
   const ptId=document.getElementById('receipt-pt-id').value;
+  const rId=document.getElementById('receipt-r-id').value;
   const item=db.phaiThu.find(x=>x.id===ptId);if(!item)return;
   const date=document.getElementById('receipt-date').value;
   const amount=parseFloat(document.getElementById('receipt-amount').value)||0;
   const note=document.getElementById('receipt-note').value.trim();
   if(!amount){alert('Nhập số tiền thu!');return;}
-  if(!item.receipts)item.receipts=[];
   const d=date?date.split('-').reverse().join('/'):today();
-  item.receipts.push({id:uid(),date:d,amount,note});
+  if(!item.receipts)item.receipts=[];
+  if(rId){
+    // Sửa giao dịch cũ
+    const r=item.receipts.find(x=>x.id===rId);
+    if(r) Object.assign(r,{date:d,amount,note});
+  } else {
+    // Thêm mới
+    item.receipts.push({id:uid(),date:d,amount,note});
+  }
   document.getElementById('receipt-modal').style.display='none';
   saveDB();go('phaithu');
 }
