@@ -190,6 +190,7 @@ table.dtbl{width:100%;border-collapse:collapse}
     <div class="n-item" id="nav-sync" onclick="go('sync')"><i class="ti ti-refresh"></i>Đồng bộ dữ liệu</div>
     <div class="n-item" id="nav-thuchi" onclick="go('thuchi')"><i class="ti ti-wallet"></i>Thu chi thực tế</div>
     <div class="n-item" id="nav-congno" onclick="go('congno')"><i class="ti ti-receipt-2"></i>Theo dõi công nợ</div>
+    <div class="n-item" id="nav-phaithu" onclick="go('phaithu')"><i class="ti ti-cash"></i>Theo dõi phải thu</div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
       <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;padding:0 2px">Tìm nhanh mã hàng</div>
       <div style="position:relative">
@@ -314,6 +315,7 @@ function render(){
   else if(st.page==='sync') el.innerHTML=pSync();
   else if(st.page==='thuchi'){el.innerHTML=pThuChi();bindThuChi();}
   else if(st.page==='congno'){el.innerHTML=pCongNo(st.pid||'xuong');bindCongNo();}
+  else if(st.page==='phaithu'){el.innerHTML=pPhaiThu();bindPhaiThu();}
   else if(st.page==='report') {el.innerHTML=pReport(st.pid);bindReport();}
   updateReminders();
 }
@@ -1129,7 +1131,331 @@ function delPayment(cnId,payId){
   saveDB();go('congno',item.type);
 }
 
-// ── END CÔNG NỢ ──
+// ── PHẢI THU ──
+function initPhaiThu(){if(!db.phaiThu)db.phaiThu=[];}
+
+function pPhaiThu(){
+  initPhaiThu();
+  const list=db.phaiThu;
+
+  function conLai(item){
+    const tong=(item.dauKy||0)+(item.phatSinh||0);
+    const daThu=(item.receipts||[]).reduce((s,r)=>s+(r.amount||0),0);
+    return tong-daThu;
+  }
+  function tongPT(item){return(item.dauKy||0)+(item.phatSinh||0);}
+  function daThu(item){return(item.receipts||[]).reduce((s,r)=>s+(r.amount||0),0);}
+
+  const totalPT=list.reduce((s,x)=>s+tongPT(x),0);
+  const totalDaThu=list.reduce((s,x)=>s+daThu(x),0);
+  const totalConLai=list.reduce((s,x)=>s+Math.max(0,conLai(x)),0);
+
+  // Sort: còn lại nhiều nhất lên đầu
+  const sorted=[...list].sort((a,b)=>conLai(b)-conLai(a));
+
+  function mkCard(item){
+    const cl=conLai(item);
+    const dt=daThu(item);
+    const tn=tongPT(item);
+    const pct=tn>0?Math.min(100,dt/tn*100):0;
+    const clColor=cl<=0?'var(--success)':cl/tn>0.7?'var(--danger)':cl/tn>0.3?'#f59e0b':'var(--text)';
+    const urgency=cl>0?cl/Math.max(totalConLai,1)*100:0;
+
+    return`<div class="card" style="padding:16px 18px;margin-bottom:10px;${cl>0&&urgency>30?'border-left:4px solid var(--danger)':cl>0?'border-left:4px solid #f59e0b':''}">
+      <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <!-- Tên đối tác -->
+        <div style="flex:1;min-width:140px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:32px;height:32px;border-radius:8px;background:${cl<=0?'#d1fae5':cl/tn>0.5?'#fee2e2':'#fef3c7'};display:flex;align-items:center;justify-content:center;font-size:14px">
+              ${cl<=0?'✅':cl/tn>0.5?'🔴':'🟡'}
+            </div>
+            <div>
+              <div style="font-size:15px;font-weight:700;color:var(--text)">${item.name}</div>
+              <div style="font-size:11px;color:var(--text3)">${item.note||''}</div>
+            </div>
+          </div>
+        </div>
+        <!-- Số liệu -->
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Đầu kỳ</div>
+            <div style="font-size:13px;font-weight:500;color:var(--text2)">${fmt(item.dauKy||0)}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Phát sinh</div>
+            <div style="font-size:13px;font-weight:500;color:#6366f1">${fmt(item.phatSinh||0)}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Tổng phải thu</div>
+            <div style="font-size:13px;font-weight:600;color:var(--danger)">${fmt(tn)}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Đã thu</div>
+            <div style="font-size:13px;font-weight:600;color:var(--success)">${fmt(dt)}</div>
+          </div>
+          <div style="text-align:center;min-width:96px">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Còn phải thu</div>
+            <div style="font-size:20px;font-weight:700;color:${clColor}">${cl<=0?'✅ Xong':fmt(cl)}</div>
+          </div>
+        </div>
+        <!-- Buttons -->
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-primary btn-sm" onclick="openAddReceipt('${item.id}')">
+            <i class="ti ti-cash"></i> Thu tiền
+          </button>
+          <button class="btn btn-sec btn-sm" onclick="openEditPT('${item.id}')">
+            <i class="ti ti-edit"></i>
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="delPT('${item.id}')">
+            <i class="ti ti-trash"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div style="margin:10px 0 4px;background:var(--bg2);border-radius:6px;height:8px;overflow:hidden">
+        <div style="background:${cl<=0?'var(--success)':cl/tn>0.5?'var(--danger)':'#f59e0b'};height:100%;width:${pct.toFixed(0)}%;border-radius:6px;transition:width .4s"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:${(item.receipts||[]).length?'8px':'0'}">
+        Đã thu ${pct.toFixed(1)}% · ${cl>0?'Còn thiếu <b style=color:var(--danger)>'+fmt(cl)+'</b>':'<b style=color:var(--success)>Đã thu đủ</b>'}
+      </div>
+
+      <!-- Lịch sử thu tiền -->
+      ${(item.receipts||[]).length?`<div style="border-top:1px solid var(--border);padding-top:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">
+          <i class="ti ti-history" style="font-size:10px"></i> LỊCH SỬ THU TIỀN
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${[...(item.receipts||[])].reverse().map(r=>`<div style="display:flex;gap:10px;align-items:center;font-size:12px;padding:5px 8px;border-radius:6px;background:var(--bg2)">
+            <i class="ti ti-cash" style="color:var(--success);font-size:12px;flex-shrink:0"></i>
+            <span style="color:var(--text3);white-space:nowrap;min-width:80px">${r.date||'—'}</span>
+            <span style="flex:1;color:var(--text2)">${r.note||'Thu tiền'}</span>
+            <span style="font-weight:700;color:var(--success);white-space:nowrap">+${fmt(r.amount||0)}</span>
+            <button onclick="delReceipt('${item.id}','${r.id}')" style="border:none;background:none;cursor:pointer;color:var(--text3);padding:0 2px;font-size:14px;line-height:1" title="Xóa">×</button>
+          </div>`).join('')}
+        </div>
+      </div>`:''}
+    </div>`;
+  }
+
+  return`<div class="page-hdr">
+    <div>
+      <div class="page-title"><i class="ti ti-cash" style="color:#10b981"></i> Theo dõi phải thu</div>
+      <div class="page-sub">Công nợ phải thu từ đối tác · ${list.length} đối tác</div>
+    </div>
+    <button class="btn btn-primary" onclick="openAddPT()"><i class="ti ti-plus"></i> Thêm đối tác</button>
+  </div>
+
+  <!-- KPI tổng hợp -->
+  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+    <div class="stat-card" style="background:#eff6ff;border-color:#2563eb33">
+      <div class="stat-lbl" style="color:#1d4ed8">Tổng phải thu</div>
+      <div style="font-size:20px;font-weight:700;color:#1d4ed8">${fmt(totalPT)}</div>
+    </div>
+    <div class="stat-card" style="background:#f0fdf4;border-color:#22c55e33">
+      <div class="stat-lbl" style="color:#16a34a">Đã thu được</div>
+      <div style="font-size:20px;font-weight:700;color:#16a34a">${fmt(totalDaThu)}</div>
+    </div>
+    <div class="stat-card" style="background:${totalConLai>0?'#fef2f2':'#f0fdf4'};border-color:${totalConLai>0?'#ef444433':'#22c55e33'}">
+      <div class="stat-lbl" style="color:${totalConLai>0?'#dc2626':'#16a34a'}">Còn phải thu</div>
+      <div style="font-size:20px;font-weight:700;color:${totalConLai>0?'#dc2626':'#16a34a'}">${fmt(totalConLai)}</div>
+    </div>
+    <div class="stat-card" style="background:#fffbeb;border-color:#f59e0b33">
+      <div class="stat-lbl" style="color:#92400e">Tỉ lệ thu hồi</div>
+      <div style="font-size:20px;font-weight:700;color:#92400e">${totalPT>0?(totalDaThu/totalPT*100).toFixed(1)+'%':'—'}</div>
+    </div>
+  </div>
+
+  <!-- Progress tổng quát -->
+  ${totalPT>0?`<div class="card" style="padding:14px 18px;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+      <span style="color:var(--text2);font-weight:500">Tiến độ thu hồi công nợ</span>
+      <span style="color:var(--success);font-weight:600">${fmt(totalDaThu)} / ${fmt(totalPT)}</span>
+    </div>
+    <div style="background:var(--bg2);border-radius:8px;height:12px;overflow:hidden">
+      <div style="background:linear-gradient(90deg,var(--success),#34d399);height:100%;width:${Math.min(100,totalDaThu/totalPT*100).toFixed(0)}%;border-radius:8px;transition:width .6s"></div>
+    </div>
+  </div>`:''}
+
+  <!-- Danh sách đối tác -->
+  ${sorted.length===0
+    ?`<div class="card" style="padding:48px;text-align:center;color:var(--text3)">
+        <i class="ti ti-cash" style="font-size:36px;margin-bottom:12px;display:block;opacity:.4"></i>
+        <div style="font-size:14px">Chưa có đối tác nào</div>
+        <div style="font-size:12px;margin-top:4px">Nhấn <b>Thêm đối tác</b> để bắt đầu theo dõi</div>
+      </div>`
+    :sorted.map(x=>mkCard(x)).join('')}
+
+  <!-- Modal thêm/sửa đối tác -->
+  <div id="pt-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+    <div class="card" style="width:480px;padding:24px;margin:0;max-height:90vh;overflow-y:auto">
+      <div style="font-weight:700;font-size:16px;margin-bottom:16px" id="pt-modal-title">Thêm đối tác</div>
+      <input type="hidden" id="pt-id">
+      <div style="display:grid;gap:12px">
+        <div><label class="fl">Tên đối tác / khách hàng</label>
+          <input id="pt-name" class="fi" placeholder="VD: Aeon, Emart, Gumac..." style="width:100%"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label class="fl">Số đầu kỳ (₫)</label>
+            <input id="pt-dauky" type="number" class="fi" placeholder="0" min="0" style="width:100%">
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">Dư nợ phải thu từ kỳ trước</div>
+          </div>
+          <div><label class="fl">Phát sinh thêm (₫)</label>
+            <input id="pt-phatsinh" type="number" class="fi" placeholder="0" min="0" style="width:100%">
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">Doanh số chưa thu trong kỳ</div>
+          </div>
+        </div>
+        <div><label class="fl">Ghi chú</label>
+          <input id="pt-note" class="fi" placeholder="VD: Aeon Mall, kênh B2B..." style="width:100%"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <button class="btn btn-primary" onclick="savePT()" style="flex:1"><i class="ti ti-check"></i> Lưu</button>
+        <button class="btn btn-sec" onclick="closePTModal()" style="flex:1">Hủy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal thu tiền -->
+  <div id="receipt-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+    <div class="card" style="width:420px;padding:24px;margin:0">
+      <div style="font-weight:700;font-size:16px;margin-bottom:4px">Cập nhật thu tiền</div>
+      <div style="font-size:13px;color:#10b981;margin-bottom:16px" id="receipt-partner-name"></div>
+      <input type="hidden" id="receipt-pt-id">
+      <div style="display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label class="fl">Ngày thu</label>
+            <input id="receipt-date" type="date" class="fi" value="${today()}" style="width:100%"></div>
+          <div><label class="fl">Số tiền thu (₫)</label>
+            <input id="receipt-amount" type="number" class="fi" placeholder="0" min="0" style="width:100%"></div>
+        </div>
+        <div><label class="fl">Nội dung / ghi chú</label>
+          <input id="receipt-note" class="fi" placeholder="VD: Thu tiền hàng T5, đợt 1..." style="width:100%"></div>
+        <!-- Còn lại hiển thị real-time -->
+        <div id="receipt-preview" style="background:var(--bg2);border-radius:8px;padding:10px 14px;font-size:12px;display:none">
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text2)">Còn phải thu sau khi ghi nhận:</span>
+            <span id="receipt-remain" style="font-weight:700;color:var(--danger)"></span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <button class="btn btn-primary" onclick="saveReceipt()" style="flex:1"><i class="ti ti-cash"></i> Ghi nhận thu</button>
+        <button class="btn btn-sec" onclick="document.getElementById('receipt-modal').style.display='none'" style="flex:1">Hủy</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function bindPhaiThu(){
+  ['pt-modal','receipt-modal'].forEach(id=>{
+    const m=document.getElementById(id);
+    if(m) m.addEventListener('click',e=>{if(e.target===m)m.style.display='none';});
+  });
+  // Preview còn lại real-time
+  const amtEl=document.getElementById('receipt-amount');
+  if(amtEl) amtEl.addEventListener('input',updateReceiptPreview);
+}
+
+function updateReceiptPreview(){
+  const ptId=document.getElementById('receipt-pt-id').value;
+  const item=(db.phaiThu||[]).find(x=>x.id===ptId);
+  if(!item) return;
+  const cl=((item.dauKy||0)+(item.phatSinh||0))-((item.receipts||[]).reduce((s,r)=>s+(r.amount||0),0));
+  const entering=parseFloat(document.getElementById('receipt-amount').value)||0;
+  const remain=cl-entering;
+  const prev=document.getElementById('receipt-preview');
+  const remEl=document.getElementById('receipt-remain');
+  if(entering>0&&prev&&remEl){
+    prev.style.display='block';
+    remEl.textContent=remain<=0?'✅ Thu đủ':fmt(remain);
+    remEl.style.color=remain<=0?'var(--success)':'var(--danger)';
+  }
+}
+
+function openAddPT(){
+  initPhaiThu();
+  document.getElementById('pt-id').value='';
+  document.getElementById('pt-modal-title').textContent='Thêm đối tác phải thu';
+  document.getElementById('pt-name').value='';
+  document.getElementById('pt-dauky').value='';
+  document.getElementById('pt-phatsinh').value='';
+  document.getElementById('pt-note').value='';
+  document.getElementById('pt-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('pt-name').focus(),100);
+}
+
+function closePTModal(){document.getElementById('pt-modal').style.display='none';}
+
+function openEditPT(id){
+  initPhaiThu();
+  const item=db.phaiThu.find(x=>x.id===id);if(!item)return;
+  document.getElementById('pt-id').value=id;
+  document.getElementById('pt-modal-title').textContent='Chỉnh sửa — '+item.name;
+  document.getElementById('pt-name').value=item.name||'';
+  document.getElementById('pt-dauky').value=item.dauKy||0;
+  document.getElementById('pt-phatsinh').value=item.phatSinh||0;
+  document.getElementById('pt-note').value=item.note||'';
+  document.getElementById('pt-modal').style.display='flex';
+}
+
+function savePT(){
+  initPhaiThu();
+  const id=document.getElementById('pt-id').value;
+  const name=document.getElementById('pt-name').value.trim();
+  if(!name){alert('Nhập tên đối tác!');return;}
+  const dauKy=parseFloat(document.getElementById('pt-dauky').value)||0;
+  const phatSinh=parseFloat(document.getElementById('pt-phatsinh').value)||0;
+  const note=document.getElementById('pt-note').value.trim();
+  if(id){
+    const item=db.phaiThu.find(x=>x.id===id);
+    if(item) Object.assign(item,{name,dauKy,phatSinh,note});
+  } else {
+    db.phaiThu.push({id:uid(),name,dauKy,phatSinh,note,receipts:[]});
+  }
+  closePTModal();saveDB();go('phaithu');
+}
+
+function delPT(id){
+  if(!confirm('Xóa đối tác này?'))return;
+  db.phaiThu=(db.phaiThu||[]).filter(x=>x.id!==id);
+  saveDB();go('phaithu');
+}
+
+function openAddReceipt(ptId){
+  initPhaiThu();
+  const item=db.phaiThu.find(x=>x.id===ptId);if(!item)return;
+  document.getElementById('receipt-pt-id').value=ptId;
+  document.getElementById('receipt-partner-name').textContent=item.name;
+  document.getElementById('receipt-date').value=today();
+  document.getElementById('receipt-amount').value='';
+  document.getElementById('receipt-note').value='';
+  document.getElementById('receipt-preview').style.display='none';
+  document.getElementById('receipt-modal').style.display='flex';
+  setTimeout(()=>{document.getElementById('receipt-amount').focus();updateReceiptPreview();},100);
+}
+
+function saveReceipt(){
+  initPhaiThu();
+  const ptId=document.getElementById('receipt-pt-id').value;
+  const item=db.phaiThu.find(x=>x.id===ptId);if(!item)return;
+  const date=document.getElementById('receipt-date').value;
+  const amount=parseFloat(document.getElementById('receipt-amount').value)||0;
+  const note=document.getElementById('receipt-note').value.trim();
+  if(!amount){alert('Nhập số tiền thu!');return;}
+  if(!item.receipts)item.receipts=[];
+  const d=date?date.split('-').reverse().join('/'):today();
+  item.receipts.push({id:uid(),date:d,amount,note});
+  document.getElementById('receipt-modal').style.display='none';
+  saveDB();go('phaithu');
+}
+
+function delReceipt(ptId,rId){
+  initPhaiThu();
+  const item=db.phaiThu.find(x=>x.id===ptId);if(!item)return;
+  item.receipts=(item.receipts||[]).filter(r=>r.id!==rId);
+  saveDB();go('phaithu');
+}
+// ── END PHẢI THU ──
+
 function delAllThuChi(){if(confirm('Xóa toàn bộ dữ liệu thu chi?')){db.thuChi=[];saveDB();go('thuchi');}}
 function bindThuChi(){('click',e=>{if(e.target===modal)modal.style.display='none';});}
 
