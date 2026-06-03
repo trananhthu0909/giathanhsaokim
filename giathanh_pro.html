@@ -189,6 +189,7 @@ table.dtbl{width:100%;border-collapse:collapse}
     <div class="n-sec">Hệ thống</div>
     <div class="n-item" id="nav-sync" onclick="go('sync')"><i class="ti ti-refresh"></i>Đồng bộ dữ liệu</div>
     <div class="n-item" id="nav-thuchi" onclick="go('thuchi')"><i class="ti ti-wallet"></i>Thu chi thực tế</div>
+    <div class="n-item" id="nav-congno" onclick="go('congno')"><i class="ti ti-receipt-2"></i>Theo dõi công nợ</div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
       <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;padding:0 2px">Tìm nhanh mã hàng</div>
       <div style="position:relative">
@@ -312,6 +313,7 @@ function render(){
   }
   else if(st.page==='sync') el.innerHTML=pSync();
   else if(st.page==='thuchi'){el.innerHTML=pThuChi();bindThuChi();}
+  else if(st.page==='congno'){el.innerHTML=pCongNo(st.pid||'xuong');bindCongNo();}
   else if(st.page==='report') {el.innerHTML=pReport(st.pid);bindReport();}
   updateReminders();
 }
@@ -850,8 +852,286 @@ function pThuChi(){
     </div>
   </div>`;
 }
+// ── CÔNG NỢ ──
+function initCongNo(){if(!db.congNo)db.congNo=[];}
+
+function pCongNo(tab){
+  initCongNo();
+  const list=db.congNo;
+  const xuongs=list.filter(x=>x.type==='xuong');
+  const nccs=list.filter(x=>x.type==='ncc');
+  const cur=tab||'xuong';
+
+  // Tính số dư còn lại
+  function conLai(item){
+    const tong=(item.dauKy||0)+(item.phatSinh||0);
+    const daTT=(item.payments||[]).reduce((s,p)=>s+(p.amount||0),0);
+    return tong-daTT;
+  }
+  function tongNo(item){return(item.dauKy||0)+(item.phatSinh||0);}
+  function tongTT(item){return(item.payments||[]).reduce((s,p)=>s+(p.amount||0),0);}
+
+  const curList=cur==='xuong'?xuongs:nccs;
+  const totalNo=curList.reduce((s,x)=>s+Math.max(0,conLai(x)),0);
+  const totalTong=curList.reduce((s,x)=>s+tongNo(x),0);
+  const totalTT=curList.reduce((s,x)=>s+tongTT(x),0);
+
+  function mkRow(item){
+    const cl=conLai(item);
+    const tt=tongTT(item);
+    const tn=tongNo(item);
+    const pct=tn>0?Math.min(100,tt/tn*100):0;
+    const clColor=cl<=0?'var(--success)':cl/tn>0.7?'var(--danger)':cl/tn>0.3?'var(--warn)':'var(--text)';
+    return`<div class="card" style="padding:16px 18px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <!-- Tên + type -->
+        <div style="flex:1;min-width:140px">
+          <div style="font-size:15px;font-weight:700;color:var(--text)">${item.name}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${item.note||''}</div>
+        </div>
+        <!-- Các số -->
+        <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Đầu kỳ</div>
+            <div style="font-size:13px;font-weight:500;color:var(--text2)">${fmt(item.dauKy||0)}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Phát sinh</div>
+            <div style="font-size:13px;font-weight:500;color:#f59e0b">${fmt(item.phatSinh||0)}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Tổng nợ</div>
+            <div style="font-size:13px;font-weight:600;color:var(--danger)">${fmt(tn)}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Đã thanh toán</div>
+            <div style="font-size:13px;font-weight:600;color:var(--success)">${fmt(tt)}</div>
+          </div>
+          <div style="text-align:center;min-width:90px">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Còn lại</div>
+            <div style="font-size:18px;font-weight:700;color:${clColor}">${cl<=0?'✅ Xong':fmt(cl)}</div>
+          </div>
+        </div>
+        <!-- Buttons -->
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-primary btn-sm" onclick="openAddPayment('${item.id}')">
+            <i class="ti ti-plus"></i> TT
+          </button>
+          <button class="btn btn-sec btn-sm" onclick="openEditCN('${item.id}')">
+            <i class="ti ti-edit"></i>
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="delCN('${item.id}')">
+            <i class="ti ti-trash"></i>
+          </button>
+        </div>
+      </div>
+      <!-- Progress bar -->
+      <div style="margin:10px 0 6px;background:var(--bg2);border-radius:6px;height:8px;overflow:hidden">
+        <div style="background:var(--success);height:100%;width:${pct.toFixed(0)}%;border-radius:6px;transition:width .4s"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:${(item.payments||[]).length?'8px':'0'}">
+        Đã thanh toán ${pct.toFixed(1)}% tổng nợ
+      </div>
+      <!-- Lịch sử thanh toán -->
+      ${(item.payments||[]).length?`<div style="border-top:1px solid var(--border);padding-top:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">LỊCH SỬ THANH TOÁN</div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${[...(item.payments||[])].reverse().map(p=>`<div style="display:flex;gap:10px;align-items:center;font-size:12px;padding:4px 6px;border-radius:6px;background:var(--bg2)">
+            <span style="color:var(--text3);white-space:nowrap">${p.date||'—'}</span>
+            <span style="flex:1;color:var(--text2)">${p.note||'Thanh toán'}</span>
+            <span style="font-weight:600;color:var(--success);white-space:nowrap">+${fmt(p.amount||0)}</span>
+            <button onclick="delPayment('${item.id}','${p.id}')" style="border:none;background:none;cursor:pointer;color:var(--text3);padding:0 2px;font-size:13px" title="Xóa">×</button>
+          </div>`).join('')}
+        </div>
+      </div>`:''}
+    </div>`;
+  }
+
+  return`<div class="page-hdr">
+    <div><div class="page-title"><i class="ti ti-receipt-2" style="color:#6366f1"></i> Theo dõi công nợ</div>
+    <div class="page-sub">Quản lý công nợ xưởng & nhà cung cấp</div></div>
+    <button class="btn btn-primary" onclick="openAddCN('${cur}')"><i class="ti ti-plus"></i> Thêm mới</button>
+  </div>
+
+  <!-- Tabs -->
+  <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:18px">
+    <button onclick="go('congno','xuong')" style="padding:10px 24px;border:none;background:none;font-size:13px;font-weight:600;cursor:pointer;border-bottom:${cur==='xuong'?'3px solid #6366f1':'3px solid transparent'};color:${cur==='xuong'?'#6366f1':'var(--text2)'};margin-bottom:-2px">
+      <i class="ti ti-building-factory-2"></i> Xưởng gia công (${xuongs.length})
+    </button>
+    <button onclick="go('congno','ncc')" style="padding:10px 24px;border:none;background:none;font-size:13px;font-weight:600;cursor:pointer;border-bottom:${cur==='ncc'?'3px solid #6366f1':'3px solid transparent'};color:${cur==='ncc'?'#6366f1':'var(--text2)'};margin-bottom:-2px">
+      <i class="ti ti-truck"></i> Nhà cung cấp (${nccs.length})
+    </button>
+  </div>
+
+  <!-- Tổng hợp -->
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:18px">
+    <div class="stat-card" style="background:#fef2f2;border-color:#ef444433">
+      <div class="stat-lbl" style="color:#991b1b">Tổng nợ</div>
+      <div style="font-size:20px;font-weight:700;color:#991b1b">${fmt(totalTong)}</div>
+    </div>
+    <div class="stat-card" style="background:#f0fdf4;border-color:#22c55e33">
+      <div class="stat-lbl" style="color:#16a34a">Đã thanh toán</div>
+      <div style="font-size:20px;font-weight:700;color:#16a34a">${fmt(totalTT)}</div>
+    </div>
+    <div class="stat-card" style="background:${totalNo>0?'#fffbeb':'#f0fdf4'};border-color:${totalNo>0?'#f59e0b33':'#22c55e33'}">
+      <div class="stat-lbl" style="color:${totalNo>0?'#92400e':'#16a34a'}">Còn lại phải trả</div>
+      <div style="font-size:20px;font-weight:700;color:${totalNo>0?'#92400e':'#16a34a'}">${fmt(totalNo)}</div>
+    </div>
+  </div>
+
+  <!-- Danh sách -->
+  ${curList.length===0
+    ?`<div class="card" style="padding:40px;text-align:center;color:var(--text3)">
+        <i class="ti ti-receipt-2" style="font-size:32px;margin-bottom:8px;display:block"></i>
+        Chưa có dữ liệu. Nhấn <b>Thêm mới</b> để bắt đầu.
+      </div>`
+    :curList.map(x=>mkRow(x)).join('')}
+
+  <!-- Modal Thêm/Sửa CN -->
+  <div id="cn-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center">
+    <div class="card" style="width:460px;padding:24px;margin:0;max-height:90vh;overflow-y:auto">
+      <div style="font-weight:700;font-size:16px;margin-bottom:16px" id="cn-modal-title">Thêm công nợ</div>
+      <input type="hidden" id="cn-id">
+      <div style="display:grid;gap:12px">
+        <div><label class="fl">Tên xưởng / nhà cung cấp</label>
+          <input id="cn-name" class="fi" placeholder="VD: X9, Nghị Thắng..." style="width:100%"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label class="fl">Loại</label>
+            <select id="cn-type" class="fi" style="width:100%">
+              <option value="xuong">🏭 Xưởng gia công</option>
+              <option value="ncc">🚚 Nhà cung cấp</option>
+            </select></div>
+          <div><label class="fl">Số đầu kỳ (₫)</label>
+            <input id="cn-dauky" type="number" class="fi" placeholder="0" min="0" style="width:100%"></div>
+        </div>
+        <div><label class="fl">Phát sinh trong kỳ (₫)</label>
+          <input id="cn-phatsinh" type="number" class="fi" placeholder="0" min="0" style="width:100%"></div>
+        <div><label class="fl">Ghi chú</label>
+          <input id="cn-note" class="fi" placeholder="Ghi chú..." style="width:100%"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <button class="btn btn-primary" onclick="saveCN()" style="flex:1">Lưu</button>
+        <button class="btn btn-sec" onclick="document.getElementById('cn-modal').style.display='none'" style="flex:1">Hủy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Thanh toán -->
+  <div id="pay-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center">
+    <div class="card" style="width:400px;padding:24px;margin:0">
+      <div style="font-weight:700;font-size:16px;margin-bottom:16px">Nhập thanh toán</div>
+      <input type="hidden" id="pay-cn-id">
+      <div style="display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label class="fl">Ngày TT</label>
+            <input id="pay-date" type="date" class="fi" value="${today()}" style="width:100%"></div>
+          <div><label class="fl">Số tiền (₫)</label>
+            <input id="pay-amount" type="number" class="fi" placeholder="0" min="0" style="width:100%"></div>
+        </div>
+        <div><label class="fl">Nội dung</label>
+          <input id="pay-note" class="fi" placeholder="VD: TT tiền hàng T5..." style="width:100%"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <button class="btn btn-primary" onclick="savePayment()" style="flex:1">Lưu</button>
+        <button class="btn btn-sec" onclick="document.getElementById('pay-modal').style.display='none'" style="flex:1">Hủy</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function bindCongNo(){
+  ['cn-modal','pay-modal'].forEach(id=>{
+    const m=document.getElementById(id);
+    if(m) m.addEventListener('click',e=>{if(e.target===m)m.style.display='none';});
+  });
+}
+
+function openAddCN(type){
+  initCongNo();
+  document.getElementById('cn-id').value='';
+  document.getElementById('cn-modal-title').textContent='Thêm công nợ mới';
+  document.getElementById('cn-name').value='';
+  document.getElementById('cn-type').value=type||'xuong';
+  document.getElementById('cn-dauky').value='';
+  document.getElementById('cn-phatsinh').value='';
+  document.getElementById('cn-note').value='';
+  document.getElementById('cn-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('cn-name').focus(),100);
+}
+
+function openEditCN(id){
+  initCongNo();
+  const item=db.congNo.find(x=>x.id===id);if(!item)return;
+  document.getElementById('cn-id').value=id;
+  document.getElementById('cn-modal-title').textContent='Chỉnh sửa';
+  document.getElementById('cn-name').value=item.name||'';
+  document.getElementById('cn-type').value=item.type||'xuong';
+  document.getElementById('cn-dauky').value=item.dauKy||0;
+  document.getElementById('cn-phatsinh').value=item.phatSinh||0;
+  document.getElementById('cn-note').value=item.note||'';
+  document.getElementById('cn-modal').style.display='flex';
+}
+
+function saveCN(){
+  initCongNo();
+  const id=document.getElementById('cn-id').value;
+  const name=document.getElementById('cn-name').value.trim();
+  if(!name){alert('Nhập tên!');return;}
+  const type=document.getElementById('cn-type').value;
+  const dauKy=parseFloat(document.getElementById('cn-dauky').value)||0;
+  const phatSinh=parseFloat(document.getElementById('cn-phatsinh').value)||0;
+  const note=document.getElementById('cn-note').value.trim();
+  if(id){
+    const item=db.congNo.find(x=>x.id===id);
+    if(item) Object.assign(item,{name,type,dauKy,phatSinh,note});
+  } else {
+    db.congNo.push({id:uid(),name,type,dauKy,phatSinh,note,payments:[]});
+  }
+  document.getElementById('cn-modal').style.display='none';
+  saveDB();go('congno',type);
+}
+
+function delCN(id){
+  if(!confirm('Xóa công nợ này?'))return;
+  db.congNo=db.congNo.filter(x=>x.id!==id);
+  saveDB();go('congno',db.congNo.length?db.congNo[0].type:'xuong');
+}
+
+function openAddPayment(cnId){
+  document.getElementById('pay-cn-id').value=cnId;
+  document.getElementById('pay-date').value=today();
+  document.getElementById('pay-amount').value='';
+  document.getElementById('pay-note').value='';
+  document.getElementById('pay-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('pay-amount').focus(),100);
+}
+
+function savePayment(){
+  initCongNo();
+  const cnId=document.getElementById('pay-cn-id').value;
+  const item=db.congNo.find(x=>x.id===cnId);if(!item)return;
+  const date=document.getElementById('pay-date').value;
+  const amount=parseFloat(document.getElementById('pay-amount').value)||0;
+  const note=document.getElementById('pay-note').value.trim();
+  if(!amount){alert('Nhập số tiền!');return;}
+  if(!item.payments) item.payments=[];
+  // Chuyển date yyyy-mm-dd → dd/mm/yyyy
+  const d=date?date.split('-').reverse().join('/'):today();
+  item.payments.push({id:uid(),date:d,amount,note});
+  document.getElementById('pay-modal').style.display='none';
+  saveDB();go('congno',item.type);
+}
+
+function delPayment(cnId,payId){
+  initCongNo();
+  const item=db.congNo.find(x=>x.id===cnId);if(!item)return;
+  item.payments=(item.payments||[]).filter(p=>p.id!==payId);
+  saveDB();go('congno',item.type);
+}
+
+// ── END CÔNG NỢ ──
 function delAllThuChi(){if(confirm('Xóa toàn bộ dữ liệu thu chi?')){db.thuChi=[];saveDB();go('thuchi');}}
-function bindThuChi(){const modal=document.getElementById('tc-modal');if(modal)modal.addEventListener('click',e=>{if(e.target===modal)modal.style.display='none';});}
+function bindThuChi(){('click',e=>{if(e.target===modal)modal.style.display='none';});}
 
 
 function openAddThuChi(){
