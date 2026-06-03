@@ -2248,12 +2248,12 @@ function pDetail(id){
         <!-- Toggle loại hàng -->
         <span style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg2);border-radius:8px">
           <span style="font-size:12px;color:var(--text2)">Loại:</span>
-          <button onclick="setProductType('${id}','sx')"
-            style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid ${p.productType!=='mua'?'#10b981':'var(--border2)'};background:${p.productType!=='mua'?'#d1fae5':'var(--bg)'};color:${p.productType!=='mua'?'#065f46':'var(--text2)'}">
+          <button onclick="setProductType('${id}','sx')" class="btn btn-sm"
+            style="${p.productType!=='mua'?'background:#d1fae5;color:#065f46;border-color:#10b981;font-weight:700':'background:var(--bg);color:var(--text2);border-color:var(--border2)'}">
             🏭 Hàng SX
           </button>
-          <button onclick="setProductType('${id}','mua')"
-            style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid ${p.productType==='mua'?'#f59e0b':'var(--border2)'};background:${p.productType==='mua'?'#fef3c7':'var(--bg)'};color:${p.productType==='mua'?'#92400e':'var(--text2)'}">
+          <button onclick="setProductType('${id}','mua')" class="btn btn-sm"
+            style="${p.productType==='mua'?'background:#fef3c7;color:#92400e;border-color:#f59e0b;font-weight:700':'background:var(--bg);color:var(--text2);border-color:var(--border2)'}">
             🛒 Hàng mua
           </button>
         </span>
@@ -3086,7 +3086,10 @@ function refreshSum(id){
 function updF(id,field,val){const p=GP(id);p[field]=val;p.updatedAt=today();saveDB();refreshSum(id);}
 function setProductType(id,type){
   const p=GP(id);if(!p)return;
-  p.productType=type;p.updatedAt=today();saveDB();go('detail',id);
+  p.productType=type;
+  p.updatedAt=today();
+  saveDB();
+  go('detail',id);
 }
 function updBOM(id,i,field,val){
   const p=GP(id);p.bom[i][field]=val;p.updatedAt=today();saveDB();
