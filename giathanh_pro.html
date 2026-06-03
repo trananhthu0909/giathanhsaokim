@@ -183,6 +183,7 @@ table.dtbl{width:100%;border-collapse:collapse}
     <div class="n-sec">Quản lý</div>
     <div class="n-item" id="nav-products" onclick="go('products')"><i class="ti ti-tag"></i>Mã hàng thành phẩm</div>
     <div class="n-item" id="nav-orders" onclick="go('orders')"><i class="ti ti-clipboard-list"></i>Đơn hàng sản xuất</div>
+    <div class="n-item" id="nav-import-orders" onclick="go('import-orders')"><i class="ti ti-truck-delivery"></i>Đơn hàng nhập ngoài</div>
     <div class="n-sec">Danh mục</div>
     <div class="n-item" id="nav-materials" onclick="go('materials')"><i class="ti ti-needle-thread"></i>Nguyên phụ liệu</div>
     <div class="n-item" id="nav-factories" onclick="go('factories')"><i class="ti ti-building-factory-2"></i>Xưởng gia công</div>
@@ -304,6 +305,11 @@ function render(){
   else if(st.page==='materials') el.innerHTML=pMaterials();
   else if(st.page==='factories') el.innerHTML=pFactories();
   else if(st.page==='orders') el.innerHTML=pOrders();
+  else if(st.page==='import-orders') el.innerHTML=pImportOrders();
+  else if(st.page==='import-order-detail'){
+    try{el.innerHTML=pImportOrderDetail(st.pid);}
+    catch(e){el.innerHTML=`<div class="card" style="padding:24px;color:var(--danger)"><b>Lỗi:</b> ${e.message}</div>`;console.error(e);}
+  }
   else if(st.page==='order-detail'){
     try{
       const html=pOrderDetail(st.pid);
@@ -323,6 +329,22 @@ function render(){
 // ── CALC ──
 function calc(p){
   const qty=p.qty||1;
+  // Hàng mua: dùng giá mua vào thay vì tính từ BOM
+  if(p.productType==='mua'){
+    const cost=p.buyPrice||0;
+    const actual=p.actualPrice||0;
+    const partnerPct=p.partnerCostPct||0;
+    const partnerCost=actual>0?actual*partnerPct/100:0;
+    const actProfit=actual>0?actual-cost-partnerCost:null;
+    const actPct=actual>0&&actProfit!==null?(actProfit/actual*100):null;
+    const sale=p.salePrice||0; // giá bán đề xuất tự nhập
+    const pr=sale>0?sale-cost:0;
+    return{cost,npl:cost,gc:0,vc:0,oh:0,base:cost,pr,sale,
+      pNpl:100,pGc:0,pVc:0,pOh:0,pPr:0,
+      actual,actProfit,actPct,actStatus:actProfit===null?null:actProfit>0?'lãi':actProfit<0?'lỗ':'hòa vốn',
+      actVsSug:actual>0&&sale>0?((actual-sale)/sale*100):null,
+      partnerCost,fixedCost:p.fixedCost||0,isMua:true};
+  }
   const npl=(p.bom||[]).reduce((s,r)=>s+(r.dm||0)*(r.price||0)*(1+(r.hh||0)/100),0);
   const gc=(p.processes||[]).reduce((s,r)=>s+(r.price||0),0);
   const vc=(p.shipping||[]).reduce((s,r)=>s+(r.total>0?r.total/qty:(r.perUnit||0)),0);
@@ -1484,7 +1506,258 @@ function delReceipt(ptId,rId){
   item.receipts=(item.receipts||[]).filter(r=>r.id!==rId);
   saveDB();go('phaithu');
 }
-// ── END PHẢI THU ──
+// ── ĐƠN HÀNG NHẬP NGOÀI ──
+function initIO(){if(!db.importOrders)db.importOrders=[];}
+
+function mkIOCode(){
+  initIO();
+  const d=new Date();
+  const mm=String(d.getMonth()+1).padStart(2,'0');
+  const yy=String(d.getFullYear()).slice(2);
+  const seq=(db.importOrders.length+1).toString().padStart(3,'0');
+  return`NK${yy}${mm}-${seq}`;
+}
+
+function pImportOrders(){
+  initIO();
+  const list=db.importOrders;
+  const statusBadgeIO=s=>({
+    'draft':'<span class="badge" style="background:#f3f4f6;color:#6b7280">Nháp</span>',
+    'confirmed':'<span class="badge b-blue">Đã xác nhận</span>',
+    'received':'<span class="badge b-green">Đã nhận hàng</span>',
+    'cancelled':'<span class="badge" style="background:#fee2e2;color:#991b1b">Đã hủy</span>'
+  }[s]||'<span class="badge">—</span>');
+
+  const totalQty=list.filter(o=>o.status!=='cancelled').reduce((s,o)=>{
+    return s+(o.colors||[]).reduce((q,c)=>q+(c.qty||0),0);
+  },0);
+  const totalAmt=list.filter(o=>o.status!=='cancelled').reduce((s,o)=>{
+    const qty=(o.colors||[]).reduce((q,c)=>q+(c.qty||0),0);
+    return s+qty*(o.buyPrice||0);
+  },0);
+
+  return`<div class="page-hdr">
+    <div><div class="page-title"><i class="ti ti-truck-delivery" style="color:#6366f1"></i> Đơn hàng nhập ngoài</div>
+    <div class="page-sub">${list.length} đơn · ${totalQty.toLocaleString('vi-VN')} sp</div></div>
+    <button class="btn btn-primary" onclick="newImportOrder()"><i class="ti ti-plus"></i> Tạo đơn mới</button>
+  </div>
+
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+    <div class="stat-card"><div class="stat-lbl">Tổng đơn</div>
+      <div class="stat-val">${list.filter(o=>o.status!=='cancelled').length}</div></div>
+    <div class="stat-card"><div class="stat-lbl">Tổng SL nhập</div>
+      <div class="stat-val">${totalQty.toLocaleString('vi-VN')} <span style="font-size:13px;font-weight:400">sp</span></div></div>
+    <div class="stat-card" style="background:#eff6ff;border-color:#2563eb22"><div class="stat-lbl" style="color:#1d4ed8">Tổng tiền nhập</div>
+      <div style="font-size:18px;font-weight:700;color:#1d4ed8">${fmt(totalAmt)}</div></div>
+  </div>
+
+  ${list.length===0
+    ?`<div class="card" style="padding:48px;text-align:center;color:var(--text3)">
+        <i class="ti ti-truck-delivery" style="font-size:36px;margin-bottom:12px;display:block;opacity:.4"></i>
+        <div style="font-size:14px">Chưa có đơn nhập ngoài</div>
+        <div style="font-size:12px;margin-top:4px">Nhấn <b>Tạo đơn mới</b> để bắt đầu</div>
+      </div>`
+    :`<div class="card"><div class="tbl-wrap"><table class="dtbl">
+      <thead><tr>
+        <th>Mã đơn</th><th>Sản phẩm</th><th>Nhà cung cấp</th>
+        <th class="num">SL</th><th class="num">Giá mua</th><th class="num">Thành tiền</th>
+        <th>Ngày đặt</th><th>Ngày nhận</th><th>Trạng thái</th><th></th>
+      </tr></thead>
+      <tbody>
+      ${[...list].reverse().map(o=>{
+        const p=GP(o.productId);
+        const qty=(o.colors||[]).reduce((s,c)=>s+(c.qty||0),0);
+        const amt=qty*(o.buyPrice||0);
+        const th=p&&(p.images||[]).length?`<img src="${p.images[0].data}" style="width:22px;height:22px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:5px;border:1px solid var(--border)">`:'';
+        return`<tr style="cursor:pointer" onclick="go('import-order-detail','${o.id}')">
+          <td><span class="badge b-blue" style="font-size:11px">${o.orderCode||'—'}</span></td>
+          <td>${th}<span style="font-weight:500;font-size:13px">${p?p.name:'—'}</span></td>
+          <td style="color:var(--text2);font-size:13px">${o.supplier||'—'}</td>
+          <td class="num" style="font-weight:700">${qty.toLocaleString('vi-VN')}</td>
+          <td class="num" style="color:var(--text2)">${o.buyPrice?fmt(o.buyPrice):'—'}</td>
+          <td class="num" style="font-weight:600;color:#1d4ed8">${amt>0?fmt(amt):'—'}</td>
+          <td style="color:var(--text3);font-size:12px">${o.orderDate?o.orderDate.split('-').reverse().join('/'):'—'}</td>
+          <td style="color:var(--text3);font-size:12px">${o.deliveryDate?o.deliveryDate.split('-').reverse().join('/'):'—'}</td>
+          <td>${statusBadgeIO(o.status)}</td>
+          <td onclick="event.stopPropagation()" style="display:flex;gap:4px">
+            <button class="btn btn-sec btn-sm" onclick="go('import-order-detail','${o.id}')"><i class="ti ti-eye"></i></button>
+            <button class="btn btn-danger btn-sm" onclick="delIO('${o.id}')"><i class="ti ti-trash"></i></button>
+          </td>
+        </tr>`;
+      }).join('')}
+      </tbody></table></div></div>`}`;
+}
+
+function newImportOrder(){
+  initIO();
+  const o={id:uid(),orderCode:mkIOCode(),productId:'',supplier:'',
+    orderDate:today(),deliveryDate:'',status:'draft',
+    buyPrice:0,colors:[],note:''};
+  db.importOrders.push(o);
+  saveDB();go('import-order-detail',o.id);
+}
+
+function delIO(id){
+  if(!confirm('Xóa đơn này?'))return;
+  db.importOrders=(db.importOrders||[]).filter(o=>o.id!==id);
+  saveDB();go('import-orders');
+}
+
+function pImportOrderDetail(id){
+  initIO();
+  const o=db.importOrders.find(x=>x.id===id);
+  if(!o) return'<p>Không tìm thấy đơn.</p>';
+  const p=GP(o.productId);
+  const allProds=db.products||[];
+  const muaProds=allProds.filter(x=>x.productType==='mua');
+
+  const totalQty=(o.colors||[]).reduce((s,c)=>s+(c.qty||0),0);
+  const totalAmt=totalQty*(o.buyPrice||0);
+
+  const statusOpts=['draft','confirmed','received','cancelled'];
+  const statusLabel={'draft':'Nháp','confirmed':'Đã xác nhận','received':'Đã nhận hàng','cancelled':'Đã hủy'};
+
+  return`<div class="back-nav" onclick="go('import-orders')"><i class="ti ti-arrow-left"></i> Quay lại</div>
+  <div class="page-hdr">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="badge b-blue" style="font-size:13px;padding:4px 12px">${o.orderCode}</span>
+        <div style="font-size:20px;font-weight:700">${p?p.name:'— Chọn sản phẩm —'}</div>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+        <select onchange="updIO('${id}','status',this.value)"
+          style="border:1px solid var(--border2);border-radius:6px;padding:3px 8px;font-size:12px;font-family:inherit;background:var(--bg)">
+          ${statusOpts.map(s=>`<option value="${s}" ${o.status===s?'selected':''}>${statusLabel[s]}</option>`).join('')}
+        </select>
+        <span style="display:flex;align-items:center;gap:5px;font-size:12px">
+          <i class="ti ti-calendar" style="color:#6366f1"></i> Ngày đặt:
+          <input type="date" value="${o.orderDate||''}" onchange="updIO('${id}','orderDate',this.value)"
+            style="border:1.5px solid #6366f1;border-radius:6px;padding:2px 6px;font-size:12px;font-family:inherit;color:#4338ca;font-weight:600">
+        </span>
+        <span style="display:flex;align-items:center;gap:5px;font-size:12px">
+          <i class="ti ti-truck" style="color:#10b981"></i> Ngày nhận:
+          <input type="date" value="${o.deliveryDate||''}" onchange="updIO('${id}','deliveryDate',this.value)"
+            style="border:1px solid var(--border2);border-radius:6px;padding:2px 6px;font-size:12px;font-family:inherit">
+        </span>
+        <span style="font-weight:700;color:#1d4ed8">${totalQty.toLocaleString('vi-VN')} sp · ${fmt(totalAmt)}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Thông tin đơn -->
+  <div class="card" style="padding:18px 20px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+      <div>
+        <label class="fl">Sản phẩm</label>
+        <select onchange="updIO('${id}','productId',this.value)"
+          style="width:100%;border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;background:var(--bg)">
+          <option value="">— Chọn sản phẩm —</option>
+          ${allProds.map(x=>`<option value="${x.id}" ${o.productId===x.id?'selected':''}>${x.code} · ${x.name}${x.productType==='mua'?' 🛒':''}</option>`).join('')}
+        </select>
+        ${muaProds.length===0?'<div style="font-size:10px;color:var(--warn);margin-top:3px">Chưa có mã hàng mua. Vào Mã hàng → đổi loại sang 🛒 Hàng mua</div>':''}
+      </div>
+      <div>
+        <label class="fl">Nhà cung cấp</label>
+        <input class="fi" value="${o.supplier||''}" placeholder="Tên nhà cung cấp..."
+          onchange="updIO('${id}','supplier',this.value)" style="width:100%">
+      </div>
+      <div>
+        <label class="fl">Giá mua vào (₫/sp)</label>
+        <input type="number" class="fi" value="${o.buyPrice||''}" placeholder="0" min="0"
+          onchange="updIO('${id}','buyPrice',+this.value)" style="width:100%;font-weight:600;color:#1d4ed8">
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label class="fl">Ghi chú</label>
+      <input class="fi" value="${o.note||''}" placeholder="Ghi chú đơn hàng..."
+        onchange="updIO('${id}','note',this.value)" style="width:100%">
+    </div>
+  </div>
+
+  <!-- Màu sắc & số lượng -->
+  <div class="card" style="padding:18px 20px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-weight:700;font-size:14px"><i class="ti ti-palette" style="color:#8b5cf6"></i> Màu sắc & số lượng
+        <span class="badge" style="background:#f5f3ff;color:#6d28d9;font-size:11px;margin-left:6px">${(o.colors||[]).length} màu · ${totalQty.toLocaleString('vi-VN')} sp</span>
+      </div>
+      <button class="btn btn-sec btn-sm" onclick="addIOColor('${id}')"><i class="ti ti-plus"></i> Thêm màu</button>
+    </div>
+    ${(o.colors||[]).length===0
+      ?`<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nhấn <b>Thêm màu</b> để nhập màu sắc và số lượng</div>`
+      :`<div style="display:flex;flex-direction:column;gap:8px">
+        ${(o.colors||[]).map((c,i)=>`<div style="display:flex;gap:10px;align-items:center;padding:8px 12px;background:var(--bg2);border-radius:8px">
+          <div style="width:24px;height:24px;border-radius:6px;background:${c.colorHex||'#e5e7eb'};border:1px solid rgba(0,0,0,.1);flex-shrink:0;cursor:pointer"
+            onclick="pickIOColor('${id}',${i})" title="Chọn màu"></div>
+          <input value="${c.colorCode||''}" placeholder="Mã màu..." onchange="updIOColor('${id}',${i},'colorCode',this.value)"
+            style="width:90px;border:1px solid var(--border2);border-radius:6px;padding:4px 7px;font-size:12px;font-family:inherit;background:var(--bg);text-transform:uppercase">
+          <input value="${c.colorName||''}" placeholder="Tên màu..." onchange="updIOColor('${id}',${i},'colorName',this.value)"
+            style="flex:1;border:1px solid var(--border2);border-radius:6px;padding:4px 7px;font-size:12px;font-family:inherit;background:var(--bg)">
+          <input type="number" value="${c.qty||''}" placeholder="SL" min="0"
+            onchange="updIOColor('${id}',${i},'qty',+this.value)"
+            style="width:80px;border:1px solid var(--border2);border-radius:6px;padding:4px 7px;font-size:13px;font-family:inherit;font-weight:600;text-align:right;background:var(--bg)">
+          <span style="font-size:11px;color:var(--text3)">sp</span>
+          <span style="font-size:12px;color:#1d4ed8;font-weight:500;width:80px;text-align:right">${(c.qty||0)*(o.buyPrice||0)>0?fmt((c.qty||0)*(o.buyPrice||0)):''}</span>
+          <button onclick="delIOColor('${id}',${i})" style="border:none;background:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0 4px">×</button>
+        </div>`).join('')}
+      </div>`}
+    ${totalQty>0?`<div style="margin-top:10px;padding:10px 12px;background:var(--bg2);border-radius:8px;display:flex;justify-content:space-between;font-size:13px;font-weight:600">
+      <span>Tổng: ${totalQty.toLocaleString('vi-VN')} sp × ${fmt(o.buyPrice||0)}</span>
+      <span style="color:#1d4ed8">${fmt(totalAmt)}</span>
+    </div>`:''}
+  </div>
+
+  <!-- Color picker hidden -->
+  <input type="color" id="io-color-picker" style="position:fixed;opacity:0;pointer-events:none;width:0;height:0"
+    onchange="applyIOColor(this.value)">
+  <input type="hidden" id="io-color-idx" value="">
+  <input type="hidden" id="io-color-oid" value="${id}">`;
+}
+
+function updIO(id,field,val){
+  initIO();
+  const o=db.importOrders.find(x=>x.id===id);if(!o)return;
+  o[field]=val;saveDB();go('import-order-detail',id);
+}
+
+function addIOColor(id){
+  initIO();
+  const o=db.importOrders.find(x=>x.id===id);if(!o)return;
+  if(!o.colors)o.colors=[];
+  o.colors.push({colorCode:'',colorName:'',colorHex:'#cccccc',qty:0});
+  saveDB();go('import-order-detail',id);
+}
+
+function updIOColor(id,idx,field,val){
+  initIO();
+  const o=db.importOrders.find(x=>x.id===id);if(!o||!o.colors[idx])return;
+  o.colors[idx][field]=val;saveDB();
+  if(field==='qty') go('import-order-detail',id);
+}
+
+function delIOColor(id,idx){
+  initIO();
+  const o=db.importOrders.find(x=>x.id===id);if(!o)return;
+  o.colors.splice(idx,1);saveDB();go('import-order-detail',id);
+}
+
+function pickIOColor(id,idx){
+  document.getElementById('io-color-oid').value=id;
+  document.getElementById('io-color-idx').value=idx;
+  const picker=document.getElementById('io-color-picker');
+  const o=(db.importOrders||[]).find(x=>x.id===id);
+  if(o&&o.colors[idx]) picker.value=o.colors[idx].colorHex||'#cccccc';
+  picker.click();
+}
+
+function applyIOColor(hex){
+  const id=document.getElementById('io-color-oid').value;
+  const idx=+document.getElementById('io-color-idx').value;
+  initIO();
+  const o=db.importOrders.find(x=>x.id===id);if(!o||!o.colors[idx])return;
+  o.colors[idx].colorHex=hex;saveDB();go('import-order-detail',id);
+}
+// ── END ĐƠN HÀNG NHẬP NGOÀI ──
+
 
 function delAllThuChi(){if(confirm('Xóa toàn bộ dữ liệu thu chi?')){db.thuChi=[];saveDB();go('thuchi');}}
 function bindThuChi(){('click',e=>{if(e.target===modal)modal.style.display='none';});}
@@ -1963,16 +2236,76 @@ function pDetail(id){
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span class="badge b-blue" style="font-size:13px;padding:4px 12px">${p.code}</span>
         <span class="page-title">${p.name}</span>
+        ${p.productType==='mua'?'<span class="badge" style="background:#fef3c7;color:#92400e;font-size:11px">🛒 Hàng mua</span>':'<span class="badge" style="background:#d1fae5;color:#065f46;font-size:11px">🏭 Hàng SX</span>'}
         <button class="btn btn-ghost btn-sm no-print" onclick="openMProd('${id}')"><i class="ti ti-edit"></i></button>
       </div>
-      <div class="page-sub" style="margin-top:6px">
-        Cập nhật: ${p.updatedAt||'—'} &nbsp;|&nbsp; Số lượng lô:
-        <input type="number" value="${qty}" min="1" onchange="updF('${id}','qty',+this.value)"
-          style="width:60px;padding:2px 6px;border:1px solid var(--border2);border-radius:6px;font-size:13px;font-family:inherit;margin:0 4px"> sản phẩm
+      <div class="page-sub" style="margin-top:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span>Cập nhật: ${p.updatedAt||'—'}</span>
+        <span>Số lượng lô:
+          <input type="number" value="${qty}" min="1" onchange="updF('${id}','qty',+this.value)"
+            style="width:60px;padding:2px 6px;border:1px solid var(--border2);border-radius:6px;font-size:13px;font-family:inherit;margin:0 4px"> sp
+        </span>
+        <!-- Toggle loại hàng -->
+        <span style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg2);border-radius:8px">
+          <span style="font-size:12px;color:var(--text2)">Loại:</span>
+          <button onclick="setProductType('${id}','sx')"
+            style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid ${p.productType!=='mua'?'#10b981':'var(--border2)'};background:${p.productType!=='mua'?'#d1fae5':'var(--bg)'};color:${p.productType!=='mua'?'#065f46':'var(--text2)'}">
+            🏭 Hàng SX
+          </button>
+          <button onclick="setProductType('${id}','mua')"
+            style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid ${p.productType==='mua'?'#f59e0b':'var(--border2)'};background:${p.productType==='mua'?'#fef3c7':'var(--bg)'};color:${p.productType==='mua'?'#92400e':'var(--text2)'}">
+            🛒 Hàng mua
+          </button>
+        </span>
       </div>
     </div>
     <button class="btn btn-sec no-print" onclick="window.print()"><i class="ti ti-printer"></i> In / PDF</button>
   </div>
+
+  <!-- GIÁ MUA VÀO (chỉ hiện khi là hàng mua) -->
+  ${p.productType==='mua'?`
+  <div class="card" style="padding:18px 20px;margin-bottom:16px;border:2px solid #fcd34d;background:#fffbeb">
+    <div style="font-size:14px;font-weight:700;color:#92400e;margin-bottom:14px">
+      <i class="ti ti-shopping-cart" style="color:#f59e0b"></i> Thông tin hàng mua
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+      <div>
+        <label class="fl" style="color:#92400e">Giá mua vào (₫/sp)</label>
+        <input type="number" class="fi" value="${p.buyPrice||''}" placeholder="0" min="0"
+          onchange="updF('${id}','buyPrice',+this.value)"
+          style="border-color:#f59e0b;font-size:15px;font-weight:600;color:#92400e">
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">Chi phí nhập hàng mỗi sản phẩm</div>
+      </div>
+      <div>
+        <label class="fl" style="color:#92400e">Giá bán đề xuất (₫/sp)</label>
+        <input type="number" class="fi" value="${p.salePrice||''}" placeholder="0" min="0"
+          onchange="updF('${id}','salePrice',+this.value)"
+          style="border-color:#f59e0b">
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">Giá bán niêm yết</div>
+      </div>
+      <div>
+        <label class="fl" style="color:#92400e">Giá bán thực tế (₫/sp)</label>
+        <input type="number" class="fi" value="${p.actualPrice||''}" placeholder="0" min="0"
+          onchange="updF('${id}','actualPrice',+this.value)"
+          style="border-color:${p.actualPrice?'#10b981':'#f59e0b'}">
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">Giá đã bán thực tế</div>
+      </div>
+    </div>
+    ${(p.buyPrice||0)>0?`
+    <div style="margin-top:14px;padding:12px 16px;background:white;border-radius:8px;display:flex;gap:24px;flex-wrap:wrap">
+      ${[
+        ['Giá mua vào',p.buyPrice||0,'#92400e'],
+        ['Giá bán đề xuất',p.salePrice||0,'#2563eb'],
+        ['Lãi gộp đề xuất',(p.salePrice||0)-(p.buyPrice||0),'#10b981'],
+        ['Tỉ lệ LN đề xuất',(p.salePrice||0)>0?(((p.salePrice||0)-(p.buyPrice||0))/(p.salePrice||0)*100).toFixed(1)+'%':'—','#10b981'],
+        ['Giá bán thực tế',p.actualPrice||0,'#6366f1'],
+        ['Lãi thực tế',p.actualPrice?(p.actualPrice-(p.buyPrice||0)):null,'#6366f1'],
+      ].map(([label,val,color])=>`<div>
+        <div style="font-size:10px;color:var(--text3)">${label}</div>
+        <div style="font-size:14px;font-weight:700;color:${color}">${typeof val==='string'?val:val===null?'—':fmt(val)}</div>
+      </div>`).join('')}
+    </div>`:''}
+  </div>`:''}
 
   <!-- IMAGES -->
   <div class="d-sec" style="margin-bottom:14px">
@@ -2751,6 +3084,10 @@ function refreshSum(id){
   if(el) el.innerHTML=sumHTML(GP(id));
 }
 function updF(id,field,val){const p=GP(id);p[field]=val;p.updatedAt=today();saveDB();refreshSum(id);}
+function setProductType(id,type){
+  const p=GP(id);if(!p)return;
+  p.productType=type;p.updatedAt=today();saveDB();go('detail',id);
+}
 function updBOM(id,i,field,val){
   const p=GP(id);p.bom[i][field]=val;p.updatedAt=today();saveDB();
   const r=p.bom[i];
