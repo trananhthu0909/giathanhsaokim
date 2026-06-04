@@ -7,8 +7,8 @@
 <meta name="description" content="Phần mềm theo dõi giá thành và đơn hàng sản xuất túi xách">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="GiáThành Pro">
-<title>GiáThành Pro – Theo dõi giá thành sản phẩm</title>
+<meta name="apple-mobile-web-app-title" content="SAOKIMQL">
+<title>SAOKIMQL – Quản lý Sao Kim</title>
 <link rel="manifest" id="pwa-manifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563eb'/><text y='.9em' font-size='70' x='12'>📦</text></svg>">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css">
@@ -173,8 +173,8 @@ table.dtbl{width:100%;border-collapse:collapse}
 
 <aside id="sidebar">
   <div class="s-logo">
-    <div class="a-name">📦 GiáThành Pro</div>
-    <div class="a-sub">Quản lý giá thành sản phẩm</div>
+    <div class="a-name">SAOKIMQL</div>
+    <div class="a-sub">Quản lý Sao Kim</div>
   </div>
   <nav class="s-nav">
     <div class="n-sec">Tổng quan</div>
@@ -3222,7 +3222,7 @@ async function exportOrderExcel(id){
   const getNCC=code=>db.materials.find(m=>m.code===code)?.supplier||'—';
 
   const wb=new ExcelJS.Workbook();
-  wb.creator='GiáThành Pro'; wb.created=new Date();
+  wb.creator='SAOKIMQL'; wb.created=new Date();
 
   // Đăng ký ảnh sản phẩm vào workbook (dùng chung cho mọi sheet)
   let imgId=null;
@@ -5078,7 +5078,7 @@ function sendBrowserNotifs(urgent){
     sessionStorage.setItem(key,'1');
     const p=GP(o.productId);
     const u=urgencyOf(o.daysLeft);
-    new Notification('📦 GiáThành Pro – Nhắc nhở đơn hàng',{
+    new Notification('SAOKIMQL – Nhắc nhở đơn hàng',{
       body:`${o.orderCode}${p?' – '+p.name:''}\n${u?u.label:'Sắp đến hạn'} (${o.deliveryDate})`,
       icon:'',
       tag:'rmn_'+o.id,
@@ -5435,7 +5435,7 @@ function importDB(mode){
       const text=await file.text();
       const imported=JSON.parse(text);
       if(!imported.products&&!imported.orders&&!imported.materials)
-        return alert('File không đúng định dạng GiáThành Pro.');
+        return alert('File không đúng định dạng SAOKIMQL.');
       if(mode==='replace'){
         if(!confirm(`Thay thế toàn bộ dữ liệu bằng file "${file.name}"?\nHành động này KHÔNG thể hoàn tác!`)) return;
         db=imported;
@@ -5494,7 +5494,7 @@ startAutoSync();
     document.getElementById('pwa-manifest').href='/manifest.json';
   }
   const manifest={
-    name:'GiáThành Pro',
+    name:'SAOKIMQL',
     short_name:'GiáThành',
     description:'Phần mềm theo dõi giá thành và đơn hàng sản xuất',
     start_url:'.',
