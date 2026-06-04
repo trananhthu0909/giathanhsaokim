@@ -3800,12 +3800,147 @@ function calcOrderMats(o){
 
 
 // ── DANH SÁCH ĐƠN HÀNG ──
+function openSheetsSync(){
+  const saved=localStorage.getItem('gs_webapp_url')||'';
+  const url=prompt('Dán Web App URL của Apps Script vào đây:\n(Lấy từ Apps Script → Deploy → Manage deployments)',saved);
+  if(!url) return;
+  localStorage.setItem('gs_webapp_url',url);
+  syncToSheets(url);
+}
+
+async function syncToSheets(url){
+  const btn=event?.target;
+  if(btn){btn.disabled=true;btn.textContent='⏳ Đang đồng bộ...';}
+  try{
+    const headers=[
+      'Mã đơn','Ngày lên đơn','Ngày giao','Trạng thái',
+      'Mã hàng','Tên sản phẩm','Xưởng GC',
+      'Tổng SL Sỉ chính','Tổng SL Sỉ phụ',
+      'Màu sắc','Chi tiết màu & SL',
+      'Giá thành/sp','Giá bán TT/sp','LN TT/sp','% LN TT',
+      'Tổng DT (lô)','Tổng LN (lô)','Ghi chú'
+    ];
+    const rows=(db.orders||[]).map(o=>{
+      const p=GP(o.productId);
+      const c=p?calc(p):null;
+      const chinh=(o.colors||[]).filter(cl=>(cl.siType||'chinh')!=='phu');
+      const phu=(o.colors||[]).filter(cl=>cl.siType==='phu');
+      const qtyChinh=chinh.reduce((s,cl)=>s+(cl.qty||0),0);
+      const qtyPhu=phu.reduce((s,cl)=>s+(cl.qty||0),0);
+      const mauStr=chinh.map(cl=>([cl.colorCode,cl.colorName].filter(Boolean).join(' '))).join(' | ');
+      const detailStr=chinh.map(cl=>`${cl.colorCode||cl.colorName||''}:${cl.qty||0}`).join(', ');
+      const od=o.orderDate?o.orderDate.split('-').reverse().join('/'):o.createdAt||'';
+      const dd=o.deliveryDate?o.deliveryDate.split('-').reverse().join('/'):'';
+      const statusMap={draft:'Nháp',confirmed:'Đã xác nhận',processing:'Đang SX',done:'Hoàn thành',cancelled:'Đã hủy'};
+      return[
+        o.orderCode||'', od, dd, statusMap[o.status]||o.status||'',
+        p?p.code:'', p?p.name:'', o.facName||'',
+        qtyChinh, qtyPhu, mauStr, detailStr,
+        c?Math.round(c.cost):0,
+        c&&c.actual>0?Math.round(c.actual):0,
+        c&&c.actProfit!=null?Math.round(c.actProfit):0,
+        c&&c.actPct!=null?+c.actPct.toFixed(1):0,
+        c&&c.actual>0?Math.round(c.actual*qtyChinh):0,
+        c&&c.actProfit!=null?Math.round(c.actProfit*qtyChinh):0,
+        o.note||''
+      ];
+    });
+
+    const resp=await fetch(url,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({headers,rows})
+    });
+    const result=await resp.json().catch(()=>({ok:false,error:'Không đọc được phản hồi'}));
+    if(result.ok||result.rows!=null){
+      alert(`✅ Đồng bộ thành công!\n${result.rows||rows.length} đơn hàng đã được cập nhật vào Google Sheets.`);
+    } else {
+      alert('❌ Lỗi: '+(result.error||JSON.stringify(result)));
+    }
+  }catch(err){
+    alert('❌ Không kết nối được.\nKiểm tra lại Web App URL và quyền truy cập.\n\nLỗi: '+err.message);
+  }
+  if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-brand-google"></i> Đồng bộ Sheets';}
+}
+
+function exportOrdersCSV(){
+  const rows=[];
+  // Header
+  rows.push([
+    'Mã đơn','Ngày lên đơn','Ngày giao','Trạng thái',
+    'Mã hàng','Tên sản phẩm','Xưởng GC',
+    'Tổng SL (Sỉ chính)','Tổng SL (Sỉ phụ)',
+    'Màu sắc','Chi tiết màu & SL',
+    'Giá thành/sp','Giá bán TT/sp','LN TT/sp','% LN TT',
+    'Tổng DT (lô)','Tổng LN (lô)',
+    'Ghi chú'
+  ]);
+
+  (db.orders||[]).forEach(o=>{
+    const p=GP(o.productId);
+    const c=p?calc(p):null;
+    const chinh=(o.colors||[]).filter(cl=>(cl.siType||'chinh')!=='phu');
+    const phu=(o.colors||[]).filter(cl=>cl.siType==='phu');
+    const qtyChinh=chinh.reduce((s,cl)=>s+(cl.qty||0),0);
+    const qtyPhu=phu.reduce((s,cl)=>s+(cl.qty||0),0);
+    const mauStr=chinh.map(cl=>`${cl.colorCode||''} ${cl.colorName||''}`).join(' | ');
+    const detailStr=chinh.map(cl=>`${cl.colorCode||cl.colorName||''}:${cl.qty||0}sp`).join(', ');
+    const orderDate=o.orderDate?o.orderDate.split('-').reverse().join('/'):o.createdAt||'';
+    const delivDate=o.deliveryDate?o.deliveryDate.split('-').reverse().join('/'):'';
+    const statusMap={draft:'Nháp',confirmed:'Đã xác nhận',processing:'Đang sản xuất',done:'Hoàn thành',cancelled:'Đã hủy'};
+    const status=statusMap[o.status]||o.status||'';
+    const cost=c?c.cost:0;
+    const actual=c&&c.actual>0?c.actual:0;
+    const actProfit=c&&c.actProfit!=null?c.actProfit:0;
+    const actPct=c&&c.actPct!=null?c.actPct:0;
+    rows.push([
+      o.orderCode||'',
+      orderDate,
+      delivDate,
+      status,
+      p?p.code:'',
+      p?p.name:'',
+      o.facName||'',
+      qtyChinh,
+      qtyPhu,
+      mauStr,
+      detailStr,
+      cost,
+      actual,
+      actProfit,
+      actPct,
+      actual*qtyChinh,
+      actProfit*qtyChinh,
+      o.note||''
+    ]);
+  });
+
+  // Tạo CSV
+  const csv=rows.map(r=>r.map(v=>{
+    const s=String(v==null?'':v);
+    return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;
+  }).join(',')).join('\n');
+
+  const BOM='\uFEFF'; // UTF-8 BOM cho Excel
+  const blob=new Blob([BOM+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`DonHangSX_${new Date().toLocaleDateString('vi-VN').replace(/\//g,'-')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function pOrders(){
   const total=db.orders.length;
   return`
   <div class="page-hdr">
     <div><div class="page-title">Đơn hàng sản xuất</div><div class="page-sub">${total} đơn hàng</div></div>
-    <button class="btn btn-primary" onclick="openMOrder(null)"><i class="ti ti-plus"></i> Tạo đơn hàng</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sec" onclick="exportOrdersCSV()"><i class="ti ti-file-spreadsheet"></i> Xuất CSV</button>
+      <button class="btn btn-sec" onclick="openSheetsSync()" style="border-color:#1a73e8;color:#1a73e8"><i class="ti ti-brand-google"></i> Đồng bộ Sheets</button>
+      <button class="btn btn-primary" onclick="openMOrder(null)"><i class="ti ti-plus"></i> Tạo đơn hàng</button>
+    </div>
   </div>
   <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center">
     <div style="position:relative;flex:1;max-width:420px">
