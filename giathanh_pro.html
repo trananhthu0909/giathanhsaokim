@@ -2632,6 +2632,38 @@ function sumHTML(p){
       </div>
     </div>
 
+    <!-- LN THỰC TẾ + TỈ SUẤT — luôn hiển thị -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+      <div style="background:var(--bg2);border-radius:10px;padding:12px 14px;border:1px solid ${hasActual?c.actProfit>=0?'var(--success)':'var(--danger)':'var(--border)'}22">
+        <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:4px">LN thực tế / sp</div>
+        <div style="font-size:18px;font-weight:700;color:${hasActual?c.actProfit>=0?'var(--success)':'var(--danger)':'var(--text3)'}">
+          ${hasActual?(c.actProfit>=0?'+':'')+fmtN(c.actProfit)+' ₫':'—'}
+        </div>
+        ${hasActual?`<div style="font-size:10px;color:var(--text2);margin-top:3px">${fmt(c.actual)} − ${fmt(c.cost+c.oh+c.partnerCost)}</div>`:'<div style="font-size:10px;color:var(--text3);margin-top:3px">Nhập giá bán TT</div>'}
+      </div>
+      <div style="background:var(--bg2);border-radius:10px;padding:12px 14px;border:1px solid ${hasActual?c.actPct>=20?'var(--success)':c.actPct>=10?'var(--warn)':'var(--danger)':'var(--border)'}22">
+        <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Tỉ suất LN thực</div>
+        <div style="font-size:18px;font-weight:700;color:${hasActual?c.actPct>=20?'var(--success)':c.actPct>=10?'var(--warn)':'var(--danger)':'var(--text3)'}">
+          ${hasActual?(c.actPct>=0?'+':'')+fmtPct(c.actPct):'—'}
+        </div>
+        ${hasActual?`<div style="font-size:10px;color:var(--text2);margin-top:3px">${c.actPct>=20?'✅ Đạt mục tiêu':c.actPct>=10?'⚠️ Cần cải thiện':'❌ Thấp hơn kỳ vọng'}</div>`:'<div style="font-size:10px;color:var(--text3);margin-top:3px">LN / Giá bán TT</div>'}
+      </div>
+      <div style="background:var(--bg2);border-radius:10px;padding:12px 14px">
+        <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:4px">LN lô (${qty} sp)</div>
+        <div style="font-size:18px;font-weight:700;color:${hasActual?c.actProfit*qty>=0?'var(--success)':'var(--danger)':'var(--text3)'}">
+          ${hasActual?(c.actProfit*qty>=0?'+':'')+fmtN(c.actProfit*qty)+' ₫':'—'}
+        </div>
+        ${hasActual?`<div style="font-size:10px;color:var(--text2);margin-top:3px">Tổng ${qty.toLocaleString('vi-VN')} sp</div>`:'<div style="font-size:10px;color:var(--text3);margin-top:3px">×${qty} sp</div>'}
+      </div>
+      <div style="background:var(--bg2);border-radius:10px;padding:12px 14px">
+        <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Doanh thu lô</div>
+        <div style="font-size:18px;font-weight:700;color:${hasActual?'#1d4ed8':'var(--text3)'}">
+          ${hasActual?fmtN(c.actual*qty)+' ₫':'—'}
+        </div>
+        ${hasActual?`<div style="font-size:10px;color:var(--text2);margin-top:3px">${fmt(c.actual)} × ${qty} sp</div>`:'<div style="font-size:10px;color:var(--text3);margin-top:3px">Giá TT × SL</div>'}
+      </div>
+    </div>
+
     ${hasActual?`
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px">
       <div style="background:${actBg};border-radius:10px;padding:14px 16px;border:1px solid ${actColor}22">
