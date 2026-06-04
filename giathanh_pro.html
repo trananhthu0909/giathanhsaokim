@@ -301,7 +301,10 @@ function render(){
   const el=document.getElementById('pc');
   if(st.page==='dashboard') el.innerHTML=pDash();
   else if(st.page==='products') el.innerHTML=pProducts();
-  else if(st.page==='detail'){el.innerHTML=pDetail(st.pid);bindDetail(st.pid);}
+  else if(st.page==='detail'){
+    try{el.innerHTML=pDetail(st.pid);bindDetail(st.pid);}
+    catch(e){el.innerHTML=`<div class="card" style="padding:24px;color:var(--danger)"><b>Lỗi mở sản phẩm:</b> ${e.message}<pre style="font-size:10px;overflow:auto">${(e.stack||'').slice(0,400)}</pre></div>`;console.error(e);}
+  }
   else if(st.page==='materials') el.innerHTML=pMaterials();
   else if(st.page==='factories') el.innerHTML=pFactories();
   else if(st.page==='orders') el.innerHTML=pOrders();
@@ -339,11 +342,13 @@ function calc(p){
     const actPct=actual>0&&actProfit!==null?(actProfit/actual*100):null;
     const sale=p.salePrice||0; // giá bán đề xuất tự nhập
     const pr=sale>0?sale-cost:0;
-    return{cost,npl:cost,gc:0,vc:0,oh:0,base:cost,pr,sale,
+    return{cost,npl:cost,gc:0,vc:0,oh:0,base:cost,pr,profit:pr,sale,
       pNpl:100,pGc:0,pVc:0,pOh:0,pPr:0,
       actual,actProfit,actPct,actStatus:actProfit===null?null:actProfit>0?'lãi':actProfit<0?'lỗ':'hòa vốn',
       actVsSug:actual>0&&sale>0?((actual-sale)/sale*100):null,
-      partnerCost,fixedCost:p.fixedCost||0,isMua:true};
+      partnerCost,partnerPct:0,fixedCost:p.fixedCost||0,
+      marginUnit:actual>0?actual-cost:sale>0?sale-cost:0,
+      breakEven:null,beRevenue:null,isMua:true};
   }
   const npl=(p.bom||[]).reduce((s,r)=>s+(r.dm||0)*(r.price||0)*(1+(r.hh||0)/100),0);
   const gc=(p.processes||[]).reduce((s,r)=>s+(r.price||0),0);
