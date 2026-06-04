@@ -2531,8 +2531,8 @@ function pDetail(id){
 function sumHTML(p){
   const c=calc(p),qty=p.qty||1;
   const bar=pct=>Math.max(0,Math.min(100,pct)).toFixed(1);
-  const sign=v=>v>0?'+'+v.toFixed(1):v.toFixed(1);
-  const fmtPct=v=>v===null?'—':v.toFixed(1)+'%';
+  const sign=v=>v==null?'—':v>0?'+'+v.toFixed(1):v.toFixed(1);
+  const fmtPct=v=>v==null?'—':v.toFixed(1)+'%';
 
   // Breakdown bar segments
   const segs=[
