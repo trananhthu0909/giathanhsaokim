@@ -271,6 +271,17 @@ const GP = id => db.products.find(p=>p.id===id);
 
 function loadDB(){
   try{const d=localStorage.getItem('gt_db');if(d){db=JSON.parse(d);if(!db.orders)db.orders=[];}}catch(e){}
+  // Xóa qtyOverride cũ bị sai (từ các phiên bản lỗi) cho Si materials
+  (db.orders||[]).forEach(o=>{
+    if(!o.matMeta) return;
+    Object.keys(o.matMeta).forEach(key=>{
+      // Xóa override cho tất cả key có _chinh/_phu hoặc S-prefix
+      // vì chúng có thể bị sai từ các thay đổi trước
+      if(o.matMeta[key]?.qtyOverride){
+        delete o.matMeta[key].qtyOverride;
+      }
+    });
+  });
 }
 function saveDB(){
   localStorage.setItem('gt_db',JSON.stringify(db));
