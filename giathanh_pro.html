@@ -7,8 +7,8 @@
 <meta name="description" content="Phần mềm theo dõi giá thành và đơn hàng sản xuất túi xách">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="SAOKIMQL">
-<title>SAOKIMQL – Quản lý Sao Kim</title>
+<meta name="apple-mobile-web-app-title" content="QUANLYSAOKIM">
+<title>QUANLYSAOKIM</title>
 <link rel="manifest" id="pwa-manifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563eb'/><text y='.9em' font-size='70' x='12'>📦</text></svg>">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css">
@@ -173,7 +173,7 @@ table.dtbl{width:100%;border-collapse:collapse}
 
 <aside id="sidebar">
   <div class="s-logo">
-    <div class="a-name">SAOKIMQL</div>
+    <div class="a-name">QUANLYSAOKIM</div>
     <div class="a-sub">Quản lý Sao Kim</div>
   </div>
   <nav class="s-nav">
@@ -271,15 +271,6 @@ const GP = id => db.products.find(p=>p.id===id);
 
 function loadDB(){
   try{const d=localStorage.getItem('gt_db');if(d){db=JSON.parse(d);if(!db.orders)db.orders=[];}}catch(e){}
-  // Xóa qtyOverride của các Si materials (S-prefix) để tính lại đúng theo ĐM
-  (db.orders||[]).forEach(o=>{
-    if(!o.matMeta) return;
-    Object.keys(o.matMeta).forEach(code=>{
-      if((code||'').toUpperCase().startsWith('S')&&o.matMeta[code]?.qtyOverride){
-        delete o.matMeta[code].qtyOverride;
-      }
-    });
-  });
 }
 function saveDB(){
   localStorage.setItem('gt_db',JSON.stringify(db));
@@ -3327,7 +3318,7 @@ async function exportOrderExcel(id){
   const getNCC=code=>db.materials.find(m=>m.code===code)?.supplier||'—';
 
   const wb=new ExcelJS.Workbook();
-  wb.creator='SAOKIMQL'; wb.created=new Date();
+  wb.creator='QUANLYSAOKIM'; wb.created=new Date();
 
   // Đăng ký ảnh sản phẩm vào workbook (dùng chung cho mọi sheet)
   let imgId=null;
@@ -3820,11 +3811,12 @@ function calcOrderMats(o){
       if(isSiPhu&&colorSiType!=='phu') return 0;
       if(!isSiPhu&&colorSiType==='phu') return 0;
       const cCode=c.siMatCode||c.colorCode||'';
-      // Khớp theo mã hoặc tên
       const cMat=mats.find(x=>x.code===cCode)||mats.find(x=>(x.name||'').toLowerCase()===cCode.toLowerCase());
       const cRealCode=cMat?cMat.code:cCode;
       if(cRealCode!==realCode) return 0;
-      // Luôn tính theo ĐM × SL (không dùng override để tránh sai)
+      // Ưu tiên override (nhập tay), fallback về ĐM × SL
+      const ov=meta[realCode]?.qtyOverride?.[ci];
+      if(ov!==undefined&&ov!==null) return parseFloat(ov);
       return parseFloat((dmEff*(c.qty||0)).toFixed(3));
     });
     const total=parseFloat(byColor.reduce((s,v)=>s+v,0).toFixed(3));
@@ -3839,7 +3831,8 @@ function calcOrderMats(o){
     const totalTT=byColor.reduce((s,v)=>s+v*price,0);
     return{
       matCode:realCode,matName:siMat.name||siCode,unit:siMat.unit||specificBom?.unit||bomRef?.unit||'—',
-      dm:specificBom?.dm||0,hh:specificBom?.hh||0,price,
+      dm:metaDm??specificBom?.dm??0,  // ưu tiên giá trị user nhập tay
+      hh:specificBom?.hh||0,price,
       siType:isSiPhu?'phu':'chinh',dmEff,byColor,total,stock,toBuy,
       isSi:true,isSiChinh:!isSiPhu,isSiPhu,
       mauSac:meta[realCode]?.mauSac||'',
@@ -5183,7 +5176,7 @@ function sendBrowserNotifs(urgent){
     sessionStorage.setItem(key,'1');
     const p=GP(o.productId);
     const u=urgencyOf(o.daysLeft);
-    new Notification('SAOKIMQL – Nhắc nhở đơn hàng',{
+    new Notification('QUANLYSAOKIM – Nhắc nhở đơn hàng',{
       body:`${o.orderCode}${p?' – '+p.name:''}\n${u?u.label:'Sắp đến hạn'} (${o.deliveryDate})`,
       icon:'',
       tag:'rmn_'+o.id,
@@ -5540,7 +5533,7 @@ function importDB(mode){
       const text=await file.text();
       const imported=JSON.parse(text);
       if(!imported.products&&!imported.orders&&!imported.materials)
-        return alert('File không đúng định dạng SAOKIMQL.');
+        return alert('File không đúng định dạng QUANLYSAOKIM.');
       if(mode==='replace'){
         if(!confirm(`Thay thế toàn bộ dữ liệu bằng file "${file.name}"?\nHành động này KHÔNG thể hoàn tác!`)) return;
         db=imported;
@@ -5599,7 +5592,7 @@ startAutoSync();
     document.getElementById('pwa-manifest').href='/manifest.json';
   }
   const manifest={
-    name:'SAOKIMQL',
+    name:'QUANLYSAOKIM',
     short_name:'GiáThành',
     description:'Phần mềm theo dõi giá thành và đơn hàng sản xuất',
     start_url:'.',
