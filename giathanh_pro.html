@@ -4238,7 +4238,7 @@ function pOrderDetail(id){
               </td>
               ${colorGroup.map(c=>{
                 const qty=m.byColor[c._ci];
-                const hasOverride=(meta[m.matCode]?.qtyOverride?.[c._ci]!==undefined);
+                const hasOverride=((o.matMeta||{})[m.matCode]?.qtyOverride?.[c._ci]!==undefined);
                 return`<td class="num">
                   <input type="number" value="${qty||''}" min="0" step="0.001" placeholder="0"
                     onchange="updSiQty('${id}','${m.matCode}',${c._ci},this.value===''?null:+this.value)"
