@@ -3810,15 +3810,12 @@ function calcOrderMats(o){
       const colorSiType=c.siType||'chinh';
       if(isSiPhu&&colorSiType!=='phu') return 0;
       if(!isSiPhu&&colorSiType==='phu') return 0;
-      // Ưu tiên override (nhập tay) — hoàn toàn linh động
-      const ov=meta[realCode]?.qtyOverride?.[ci];
+      // Ưu tiên override (nhập tay)
+      const ov=(meta[realCode]?.qtyOverride||{})[ci];
       if(ov!==undefined&&ov!==null) return parseFloat(ov);
-      // Default: nếu màu này dùng đúng vật liệu này → ĐM×SL, ngược lại → 0
-      const cCode=c.siMatCode||c.colorCode||'';
-      const cMat=mats.find(x=>x.code===cCode)||mats.find(x=>(x.name||'').toLowerCase()===cCode.toLowerCase());
-      const cRealCode=cMat?cMat.code:cCode;
-      if(cRealCode===realCode) return parseFloat((dmEff*(c.qty||0)).toFixed(3));
-      return 0; // Mặc định 0, user có thể nhập tay
+      // ĐM áp dụng cho TẤT CẢ màu trong section (linh động, không lọc siMatCode)
+      if(dmEff>0) return parseFloat((dmEff*(c.qty||0)).toFixed(3));
+      return 0;
     });
     const total=parseFloat(byColor.reduce((s,v)=>s+v,0).toFixed(3));
     const price=parseFloat(siMat.price||0);
