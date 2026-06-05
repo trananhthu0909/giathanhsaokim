@@ -3812,11 +3812,14 @@ function calcOrderMats(o){
       const colorSiType=c.siType||'chinh';
       if(isSiPhu&&colorSiType!=='phu') return 0;
       if(!isSiPhu&&colorSiType==='phu') return 0;
-      // Ưu tiên override (nhập tay)
+      // Ưu tiên override (nhập tay) — user có thể sửa bất kỳ ô nào
       const ov=(meta[metaKey]?.qtyOverride||{})[ci];
       if(ov!==undefined&&ov!==null) return parseFloat(ov);
-      // ĐM áp dụng cho TẤT CẢ màu trong section (linh động, không lọc siMatCode)
-      if(dmEff>0) return parseFloat((dmEff*(c.qty||0)).toFixed(3));
+      // Default: lọc theo siMatCode — màu dùng đúng vật liệu này mới tính ĐM×SL
+      const cCode=c.siMatCode||c.colorCode||'';
+      const cMat=mats.find(x=>x.code===cCode)||mats.find(x=>(x.name||'').toLowerCase()===cCode.toLowerCase());
+      const cRealCode=cMat?cMat.code:cCode;
+      if(cRealCode===realCode) return parseFloat((dmEff*(c.qty||0)).toFixed(3));
       return 0;
     });
     const total=parseFloat(byColor.reduce((s,v)=>s+v,0).toFixed(3));
