@@ -1300,6 +1300,13 @@ function pPhaiThu(){
     </div>`;
   }
 
+  // Tổng thu theo phương thức
+  let totalTM=0, totalCK=0;
+  list.forEach(item=>(item.receipts||[]).forEach(r=>{
+    if(r.pm==='bank') totalCK+=(r.amount||0);
+    else totalTM+=(r.amount||0);
+  }));
+
   return`<div class="page-hdr">
     <div>
       <div class="page-title"><i class="ti ti-cash" style="color:#10b981"></i> Theo dõi phải thu</div>
@@ -1307,13 +1314,6 @@ function pPhaiThu(){
     </div>
     <button class="btn btn-primary" onclick="openAddPT()"><i class="ti ti-plus"></i> Thêm đối tác</button>
   </div>
-
-  // Tổng thu theo phương thức
-  let totalTM=0, totalCK=0;
-  list.forEach(item=>(item.receipts||[]).forEach(r=>{
-    if(r.pm==='bank') totalCK+=(r.amount||0);
-    else totalTM+=(r.amount||0);
-  }));
 
   <!-- KPI tổng hợp -->
   <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
