@@ -672,9 +672,16 @@ function bindReport(){}
 function pThuChi(){
   if(!db.thuChi) db.thuChi=[];
   const rows=db.thuChi;
-  const totalThu=rows.filter(r=>r.type==='thu').reduce((s,r)=>s+(r.amount||0),0);
-  const totalChi=rows.filter(r=>r.type==='chi').reduce((s,r)=>s+(r.amount||0),0);
+  const totalThu=list.filter(r=>r.type==='thu').reduce((s,r)=>s+(r.amount||0),0);
+  const totalChi=list.filter(r=>r.type==='chi').reduce((s,r)=>s+(r.amount||0),0);
   const canDoi=totalThu-totalChi;
+  // Tổng thu theo PM trong phải thu
+  const ptTM=(db.phaiThu||[]).reduce((s,item)=>{
+    return s+((item.receipts||[]).filter(r=>r.pm!=='bank').reduce((a,r)=>a+(r.amount||0),0));
+  },0);
+  const ptCK=(db.phaiThu||[]).reduce((s,item)=>{
+    return s+((item.receipts||[]).filter(r=>r.pm==='bank').reduce((a,r)=>a+(r.amount||0),0));
+  },0);
 
   function getMonthKey(dateStr){
     if(!dateStr) return '00/0000';
@@ -1283,6 +1290,7 @@ function pPhaiThu(){
               <i class="ti ti-cash" style="color:var(--success);font-size:12px;flex-shrink:0"></i>
               <span style="color:var(--text3);white-space:nowrap;min-width:80px">${r.date||'—'}</span>
               <span style="flex:1;color:var(--text2)">${r.note||'Thu tiền'}</span>
+              <span style="font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600;white-space:nowrap;${r.pm==='bank'?'background:#dbeafe;color:#1d4ed8':'background:#dcfce7;color:#16a34a'}">${r.pm==='bank'?'🏦 CK':'💵 TM'}</span>
               <span style="font-weight:700;color:var(--success);white-space:nowrap">+${fmt(r.amount||0)}</span>
               <button onclick="editReceipt('${item.id}','${r.id}')" style="border:1px solid var(--border2);background:var(--bg);border-radius:4px;cursor:pointer;color:var(--text2);padding:1px 6px;font-size:11px" title="Sửa"><i class="ti ti-edit" style="font-size:10px"></i></button>
               <button onclick="delReceipt('${item.id}','${r.id}')" style="border:none;background:none;cursor:pointer;color:var(--text3);padding:0 2px;font-size:14px;line-height:1" title="Xóa">×</button>
@@ -1406,6 +1414,18 @@ function pPhaiThu(){
           <div><label class="fl">Số tiền thu (₫)</label>
             <input id="receipt-amount" type="number" class="fi" placeholder="0" min="0" style="width:100%"></div>
         </div>
+        <div><label class="fl">Phương thức thanh toán</label>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border:1.5px solid var(--border2);border-radius:8px;cursor:pointer;font-size:13px" id="pm-cash-lbl">
+              <input type="radio" name="receipt-pm" id="pm-cash" value="cash" checked onchange="updPMStyle()">
+              <i class="ti ti-cash" style="font-size:14px;color:#16a34a"></i> Tiền mặt
+            </label>
+            <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 12px;border:1.5px solid var(--border2);border-radius:8px;cursor:pointer;font-size:13px" id="pm-bank-lbl">
+              <input type="radio" name="receipt-pm" id="pm-bank" value="bank" onchange="updPMStyle()">
+              <i class="ti ti-building-bank" style="font-size:14px;color:#2563eb"></i> Chuyển khoản
+            </label>
+          </div>
+        </div>
         <div><label class="fl">Nội dung / ghi chú</label>
           <input id="receipt-note" class="fi" placeholder="VD: Thu tiền hàng T5, đợt 1..." style="width:100%"></div>
         <!-- Còn lại hiển thị real-time -->
@@ -1422,6 +1442,14 @@ function pPhaiThu(){
       </div>
     </div>
   </div>`;
+}
+
+function updPMStyle(){
+  const isCash=document.getElementById('pm-cash')?.checked;
+  const cl=document.getElementById('pm-cash-lbl');
+  const bl=document.getElementById('pm-bank-lbl');
+  if(cl) cl.style.borderColor=isCash?'#16a34a':'var(--border2)';
+  if(bl) bl.style.borderColor=!isCash?'#2563eb':'var(--border2)';
 }
 
 function bindPhaiThu(){
@@ -1566,8 +1594,10 @@ function openAddReceipt(ptId){
   document.getElementById('receipt-date').value=today();
   document.getElementById('receipt-amount').value='';
   document.getElementById('receipt-note').value='';
+  document.getElementById('pm-cash').checked=true;
   document.getElementById('receipt-preview').style.display='none';
   document.getElementById('receipt-modal').style.display='flex';
+  updPMStyle();
   setTimeout(()=>{document.getElementById('receipt-amount').focus();updateReceiptPreview();},100);
 }
 
@@ -1579,13 +1609,16 @@ function editReceipt(ptId,rId){
   document.getElementById('receipt-r-id').value=rId;
   document.getElementById('receipt-modal-title').textContent='Sửa lần thu tiền';
   document.getElementById('receipt-partner-name').textContent=item.name;
-  // Chuyển dd/mm/yyyy → yyyy-mm-dd cho input[type=date]
   const dp=(r.date||'').split('/');
   document.getElementById('receipt-date').value=dp.length===3?`${dp[2]}-${dp[1]}-${dp[0]}`:today();
   document.getElementById('receipt-amount').value=r.amount||'';
   document.getElementById('receipt-note').value=r.note||'';
+  // Khôi phục phương thức
+  const pmEl=document.getElementById(r.pm==='bank'?'pm-bank':'pm-cash');
+  if(pmEl) pmEl.checked=true;
   document.getElementById('receipt-preview').style.display='none';
   document.getElementById('receipt-modal').style.display='flex';
+  updPMStyle();
   setTimeout(()=>document.getElementById('receipt-amount').focus(),100);
 }
 
@@ -1597,16 +1630,15 @@ function saveReceipt(){
   const date=document.getElementById('receipt-date').value;
   const amount=parseFloat(document.getElementById('receipt-amount').value)||0;
   const note=document.getElementById('receipt-note').value.trim();
+  const pm=document.querySelector('input[name="receipt-pm"]:checked')?.value||'cash';
   if(!amount){alert('Nhập số tiền thu!');return;}
   const d=date?date.split('-').reverse().join('/'):today();
   if(!item.receipts)item.receipts=[];
   if(rId){
-    // Sửa giao dịch cũ
     const r=item.receipts.find(x=>x.id===rId);
-    if(r) Object.assign(r,{date:d,amount,note});
+    if(r) Object.assign(r,{date:d,amount,note,pm});
   } else {
-    // Thêm mới
-    item.receipts.push({id:uid(),date:d,amount,note});
+    item.receipts.push({id:uid(),date:d,amount,note,pm});
   }
   document.getElementById('receipt-modal').style.display='none';
   saveDB();go('phaithu');
