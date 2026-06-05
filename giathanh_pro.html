@@ -1308,8 +1308,15 @@ function pPhaiThu(){
     <button class="btn btn-primary" onclick="openAddPT()"><i class="ti ti-plus"></i> Thêm đối tác</button>
   </div>
 
+  // Tổng thu theo phương thức
+  let totalTM=0, totalCK=0;
+  list.forEach(item=>(item.receipts||[]).forEach(r=>{
+    if(r.pm==='bank') totalCK+=(r.amount||0);
+    else totalTM+=(r.amount||0);
+  }));
+
   <!-- KPI tổng hợp -->
-  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
     <div class="stat-card" style="background:#eff6ff;border-color:#2563eb33">
       <div class="stat-lbl" style="color:#1d4ed8">Tổng phải thu</div>
       <div style="font-size:20px;font-weight:700;color:#1d4ed8">${fmt(totalPT)}</div>
@@ -1325,6 +1332,25 @@ function pPhaiThu(){
     <div class="stat-card" style="background:#fffbeb;border-color:#f59e0b33">
       <div class="stat-lbl" style="color:#92400e">Tỉ lệ thu hồi</div>
       <div style="font-size:20px;font-weight:700;color:#92400e">${totalPT>0?(totalDaThu/totalPT*100).toFixed(1)+'%':'—'}</div>
+    </div>
+  </div>
+  <!-- Tổng thu theo phương thức -->
+  <div class="stats-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:16px">
+    <div class="stat-card" style="background:#dcfce7;border-color:#16a34a33;display:flex;align-items:center;gap:12px;padding:12px 16px">
+      <div style="font-size:26px">💵</div>
+      <div>
+        <div class="stat-lbl" style="color:#16a34a">Tổng thu Tiền mặt</div>
+        <div style="font-size:20px;font-weight:700;color:#16a34a">${fmt(totalTM)}</div>
+        <div style="font-size:11px;color:#4ade80;margin-top:2px">${totalDaThu>0?(totalTM/totalDaThu*100).toFixed(1)+'% tổng thu':''}</div>
+      </div>
+    </div>
+    <div class="stat-card" style="background:#dbeafe;border-color:#2563eb33;display:flex;align-items:center;gap:12px;padding:12px 16px">
+      <div style="font-size:26px">🏦</div>
+      <div>
+        <div class="stat-lbl" style="color:#1d4ed8">Tổng thu Chuyển khoản</div>
+        <div style="font-size:20px;font-weight:700;color:#1d4ed8">${fmt(totalCK)}</div>
+        <div style="font-size:11px;color:#60a5fa;margin-top:2px">${totalDaThu>0?(totalCK/totalDaThu*100).toFixed(1)+'% tổng thu':''}</div>
+      </div>
     </div>
   </div>
 
