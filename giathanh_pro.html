@@ -1165,12 +1165,9 @@ function pPhaiThu(){
   initPhaiThu();
   const list=db.phaiThu;
 
-  function conLai(item){
-    const tong=(item.dauKy||0)+(item.phatSinh||0);
-    const daThu=(item.receipts||[]).reduce((s,r)=>s+(r.amount||0),0);
-    return tong-daThu;
-  }
-  function tongPT(item){return(item.dauKy||0)+(item.phatSinh||0);}
+  function debtTotal(item){return(item.dauKy||0)+((item.debts||[]).reduce((s,d)=>s+(d.amount||0),0));}
+  function conLai(item){return debtTotal(item)-((item.receipts||[]).reduce((s,r)=>s+(r.amount||0),0));}
+  function tongPT(item){return debtTotal(item);}
   function daThu(item){return(item.receipts||[]).reduce((s,r)=>s+(r.amount||0),0);}
 
   const totalPT=list.reduce((s,x)=>s+tongPT(x),0);
@@ -1243,26 +1240,53 @@ function pPhaiThu(){
       <div style="margin:10px 0 4px;background:var(--bg2);border-radius:6px;height:8px;overflow:hidden">
         <div style="background:${cl<=0?'var(--success)':cl/tn>0.5?'var(--danger)':'#f59e0b'};height:100%;width:${pct.toFixed(0)}%;border-radius:6px;transition:width .4s"></div>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:${(item.receipts||[]).length?'8px':'0'}">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
         Đã thu ${pct.toFixed(1)}% · ${cl>0?'Còn thiếu <b style=color:var(--danger)>'+fmt(cl)+'</b>':'<b style=color:var(--success)>Đã thu đủ</b>'}
       </div>
 
+      <!-- Lịch sử phát sinh -->
+      <div style="border-top:1px solid var(--border);padding-top:10px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:11px;font-weight:600;color:#6366f1">
+            <i class="ti ti-circle-plus" style="font-size:10px"></i> LỊCH SỬ PHÁT SINH
+          </span>
+          <button onclick="openAddDebt('${item.id}')" class="btn btn-sm"
+            style="font-size:10px;padding:2px 8px;border-color:#6366f1;color:#6366f1">
+            <i class="ti ti-plus"></i> Thêm
+          </button>
+        </div>
+        ${(item.debts||[]).length===0
+          ?`<div style="font-size:11px;color:var(--text3);padding:4px 0">Chưa có phát sinh — nhấn <b>Thêm</b> để ghi nợ mới</div>`
+          :`<div style="display:flex;flex-direction:column;gap:4px">
+            ${[...(item.debts||[])].reverse().map(d=>`<div style="display:flex;gap:8px;align-items:center;font-size:12px;padding:5px 8px;border-radius:6px;background:#f0f0ff">
+              <i class="ti ti-arrow-up-circle" style="color:#6366f1;font-size:12px;flex-shrink:0"></i>
+              <span style="color:var(--text3);white-space:nowrap;min-width:80px">${d.date||'—'}</span>
+              <span style="flex:1;color:var(--text2)">${d.note||'Phát sinh'}</span>
+              <span style="font-weight:700;color:#6366f1;white-space:nowrap">+${fmt(d.amount||0)}</span>
+              <button onclick="editDebt('${item.id}','${d.id}')" style="border:1px solid var(--border2);background:var(--bg);border-radius:4px;cursor:pointer;color:var(--text2);padding:1px 6px;font-size:11px" title="Sửa"><i class="ti ti-edit" style="font-size:10px"></i></button>
+              <button onclick="delDebt('${item.id}','${d.id}')" style="border:none;background:none;cursor:pointer;color:var(--text3);padding:0 2px;font-size:14px;line-height:1" title="Xóa">×</button>
+            </div>`).join('')}
+          </div>`}
+      </div>
+
       <!-- Lịch sử thu tiền -->
-      ${(item.receipts||[]).length?`<div style="border-top:1px solid var(--border);padding-top:8px">
-        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">
+      <div style="border-top:1px solid var(--border);padding-top:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--success);margin-bottom:6px">
           <i class="ti ti-history" style="font-size:10px"></i> LỊCH SỬ THU TIỀN
         </div>
-        <div style="display:flex;flex-direction:column;gap:4px">
-          ${[...(item.receipts||[])].reverse().map(r=>`<div style="display:flex;gap:10px;align-items:center;font-size:12px;padding:5px 8px;border-radius:6px;background:var(--bg2)">
-            <i class="ti ti-cash" style="color:var(--success);font-size:12px;flex-shrink:0"></i>
-            <span style="color:var(--text3);white-space:nowrap;min-width:80px">${r.date||'—'}</span>
-            <span style="flex:1;color:var(--text2)">${r.note||'Thu tiền'}</span>
-            <span style="font-weight:700;color:var(--success);white-space:nowrap">+${fmt(r.amount||0)}</span>
-            <button onclick="editReceipt('${item.id}','${r.id}')" style="border:1px solid var(--border2);background:var(--bg);border-radius:4px;cursor:pointer;color:var(--text2);padding:1px 6px;font-size:11px" title="Sửa"><i class="ti ti-edit" style="font-size:10px"></i></button>
-            <button onclick="delReceipt('${item.id}','${r.id}')" style="border:none;background:none;cursor:pointer;color:var(--text3);padding:0 2px;font-size:14px;line-height:1" title="Xóa">×</button>
-          </div>`).join('')}
-        </div>
-      </div>`:''}
+        ${(item.receipts||[]).length===0
+          ?`<div style="font-size:11px;color:var(--text3);padding:4px 0">Chưa có khoản thu</div>`
+          :`<div style="display:flex;flex-direction:column;gap:4px">
+            ${[...(item.receipts||[])].reverse().map(r=>`<div style="display:flex;gap:8px;align-items:center;font-size:12px;padding:5px 8px;border-radius:6px;background:var(--bg2)">
+              <i class="ti ti-cash" style="color:var(--success);font-size:12px;flex-shrink:0"></i>
+              <span style="color:var(--text3);white-space:nowrap;min-width:80px">${r.date||'—'}</span>
+              <span style="flex:1;color:var(--text2)">${r.note||'Thu tiền'}</span>
+              <span style="font-weight:700;color:var(--success);white-space:nowrap">+${fmt(r.amount||0)}</span>
+              <button onclick="editReceipt('${item.id}','${r.id}')" style="border:1px solid var(--border2);background:var(--bg);border-radius:4px;cursor:pointer;color:var(--text2);padding:1px 6px;font-size:11px" title="Sửa"><i class="ti ti-edit" style="font-size:10px"></i></button>
+              <button onclick="delReceipt('${item.id}','${r.id}')" style="border:none;background:none;cursor:pointer;color:var(--text3);padding:0 2px;font-size:14px;line-height:1" title="Xóa">×</button>
+            </div>`).join('')}
+          </div>`}
+      </div>
     </div>`;
   }
 
@@ -1342,6 +1366,30 @@ function pPhaiThu(){
     </div>
   </div>
 
+  <!-- Modal phát sinh nợ mới -->
+  <div id="debt-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+    <div class="card" style="width:420px;padding:24px;margin:0">
+      <div style="font-weight:700;font-size:16px;margin-bottom:4px" id="debt-modal-title">Thêm phát sinh</div>
+      <div style="font-size:13px;color:#6366f1;margin-bottom:16px" id="debt-partner-name"></div>
+      <input type="hidden" id="debt-pt-id">
+      <input type="hidden" id="debt-id">
+      <div style="display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label class="fl">Ngày phát sinh</label>
+            <input id="debt-date" type="date" class="fi" style="width:100%"></div>
+          <div><label class="fl">Số tiền (₫)</label>
+            <input id="debt-amount" type="number" class="fi" placeholder="0" min="0" style="width:100%"></div>
+        </div>
+        <div><label class="fl">Nội dung</label>
+          <input id="debt-note" class="fi" placeholder="VD: Doanh số T5, xuất hàng đợt 2..." style="width:100%"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <button class="btn btn-primary" onclick="saveDebt()" style="flex:1;background:#6366f1;border-color:#6366f1"><i class="ti ti-check"></i> Lưu</button>
+        <button class="btn btn-sec" onclick="document.getElementById('debt-modal').style.display='none'" style="flex:1">Hủy</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal thu tiền -->
   <div id="receipt-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
     <div class="card" style="width:420px;padding:24px;margin:0">
@@ -1375,13 +1423,70 @@ function pPhaiThu(){
 }
 
 function bindPhaiThu(){
-  ['pt-modal','receipt-modal'].forEach(id=>{
+  ['pt-modal','receipt-modal','debt-modal'].forEach(id=>{
     const m=document.getElementById(id);
     if(m) m.addEventListener('click',e=>{if(e.target===m)m.style.display='none';});
   });
-  // Preview còn lại real-time
   const amtEl=document.getElementById('receipt-amount');
   if(amtEl) amtEl.addEventListener('input',updateReceiptPreview);
+}
+
+function openAddDebt(ptId){
+  initPhaiThu();
+  const item=db.phaiThu.find(x=>x.id===ptId);if(!item)return;
+  document.getElementById('debt-pt-id').value=ptId;
+  document.getElementById('debt-id').value='';
+  document.getElementById('debt-modal-title').textContent='Thêm phát sinh mới';
+  document.getElementById('debt-partner-name').textContent=item.name;
+  document.getElementById('debt-date').value=today();
+  document.getElementById('debt-amount').value='';
+  document.getElementById('debt-note').value='';
+  document.getElementById('debt-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('debt-amount').focus(),100);
+}
+
+function editDebt(ptId,dId){
+  initPhaiThu();
+  const item=db.phaiThu.find(x=>x.id===ptId);if(!item)return;
+  const d=(item.debts||[]).find(x=>x.id===dId);if(!d)return;
+  document.getElementById('debt-pt-id').value=ptId;
+  document.getElementById('debt-id').value=dId;
+  document.getElementById('debt-modal-title').textContent='Sửa phát sinh';
+  document.getElementById('debt-partner-name').textContent=item.name;
+  const dp=(d.date||'').split('/');
+  document.getElementById('debt-date').value=dp.length===3?`${dp[2]}-${dp[1]}-${dp[0]}`:today();
+  document.getElementById('debt-amount').value=d.amount||'';
+  document.getElementById('debt-note').value=d.note||'';
+  document.getElementById('debt-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('debt-amount').focus(),100);
+}
+
+function saveDebt(){
+  initPhaiThu();
+  const ptId=document.getElementById('debt-pt-id').value;
+  const dId=document.getElementById('debt-id').value;
+  const item=db.phaiThu.find(x=>x.id===ptId);if(!item)return;
+  const date=document.getElementById('debt-date').value;
+  const amount=parseFloat(document.getElementById('debt-amount').value)||0;
+  const note=document.getElementById('debt-note').value.trim();
+  if(!amount){alert('Nhập số tiền phát sinh!');return;}
+  const d=date?date.split('-').reverse().join('/'):today();
+  if(!item.debts)item.debts=[];
+  if(dId){
+    const entry=item.debts.find(x=>x.id===dId);
+    if(entry) Object.assign(entry,{date:d,amount,note});
+  } else {
+    item.debts.push({id:uid(),date:d,amount,note});
+  }
+  document.getElementById('debt-modal').style.display='none';
+  saveDB();go('phaithu');
+}
+
+function delDebt(ptId,dId){
+  initPhaiThu();
+  const item=db.phaiThu.find(x=>x.id===ptId);if(!item)return;
+  item.debts=(item.debts||[]).filter(d=>d.id!==dId);
+  saveDB();go('phaithu');
 }
 
 function updateReceiptPreview(){
