@@ -189,6 +189,7 @@ table.dtbl{width:100%;border-collapse:collapse}
     <div class="n-item" id="nav-factories" onclick="go('factories')"><i class="ti ti-building-factory-2"></i>Xưởng gia công</div>
     <div class="n-sec">Hệ thống</div>
     <div class="n-item" id="nav-sync" onclick="go('sync')"><i class="ti ti-refresh"></i>Đồng bộ dữ liệu</div>
+    <div class="n-item" id="nav-haravan" onclick="go('haravan')"><i class="ti ti-plug-connected" style="color:#f59e0b"></i>Kết nối Haravan</div>
     <div class="n-item" id="nav-thuchi" onclick="go('thuchi')"><i class="ti ti-wallet"></i>Thu chi thực tế</div>
     <div class="n-item" id="nav-congno" onclick="go('congno')"><i class="ti ti-receipt-2"></i>Theo dõi công nợ</div>
     <div class="n-item" id="nav-phaithu" onclick="go('phaithu')"><i class="ti ti-cash"></i>Theo dõi phải thu</div>
@@ -324,6 +325,7 @@ function render(){
     catch(e){el.innerHTML=`<div class="card" style="padding:24px;color:var(--danger)"><b>Lỗi:</b> ${e.message}<pre style="font-size:10px">${(e.stack||'').slice(0,500)}</pre></div>`;console.error(e);}
   }
   else if(st.page==='sync') el.innerHTML=pSync();
+  else if(st.page==='haravan'){el.innerHTML=pHaravan();bindHaravan();}
   else if(st.page==='thuchi'){el.innerHTML=pThuChi();bindThuChi();}
   else if(st.page==='congno'){el.innerHTML=pCongNo(st.pid||'xuong');bindCongNo();}
   else if(st.page==='phaithu'){el.innerHTML=pPhaiThu();bindPhaiThu();}
@@ -668,7 +670,162 @@ function pReport(yr){
 }
 function bindReport(){}
 
-// ── THU CHI THỰC TẾ ──
+// ── KẾT NỐI HARAVAN ──
+function pHaravan(){
+  const cfg=JSON.parse(localStorage.getItem('haravan_cfg')||'{}');
+  const hasConfig=cfg.token&&cfg.domain;
+  return`<div class="page-hdr">
+    <div>
+      <div class="page-title" style="display:flex;align-items:center;gap:10px">
+        <img src="https://www.haravan.com/favicon.ico" style="width:20px;height:20px" onerror="this.style.display='none'">
+        Kết nối Haravan
+      </div>
+      <div class="page-sub">Đồng bộ đơn hàng & tồn kho từ Haravan về QUANLYSAOKIM</div>
+    </div>
+    ${hasConfig?'<button class="btn btn-primary" onclick="haravanSync()"><i class="ti ti-refresh"></i> Đồng bộ ngay</button>':''}
+  </div>
+
+  <!-- Cấu hình API -->
+  <div class="card" style="padding:20px;margin-bottom:16px">
+    <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--text)">
+      <i class="ti ti-key" style="color:#f59e0b"></i> Cấu hình API Haravan
+    </div>
+    <div style="display:grid;gap:12px">
+      <div>
+        <label class="fl">Store Domain <span style="color:var(--text3);font-size:11px">(VD: yourstorename.myharavan.com)</span></label>
+        <input id="hara-domain" class="fi" placeholder="yourstorename.myharavan.com" value="${cfg.domain||''}" style="width:100%">
+      </div>
+      <div>
+        <label class="fl">API Token <span style="color:var(--text3);font-size:11px">(Haravan Admin → Cài đặt → Ứng dụng riêng tư)</span></label>
+        <input id="hara-token" class="fi" type="password" placeholder="xxxxxxxxxxxxxxxxxxxxxx" value="${cfg.token||''}" style="width:100%">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-primary" onclick="saveHaravanConfig()"><i class="ti ti-check"></i> Lưu & Kết nối</button>
+      <button class="btn btn-sec" onclick="testHaravanConnection()"><i class="ti ti-plug-connected"></i> Kiểm tra kết nối</button>
+      ${hasConfig?'<button class="btn btn-sec" onclick="localStorage.removeItem(\'haravan_cfg\');go(\'haravan\')" style="color:var(--danger)"><i class="ti ti-trash"></i> Xóa cấu hình</button>':''}
+    </div>
+    <div id="hara-status" style="margin-top:10px;font-size:12px"></div>
+  </div>
+
+  <!-- Hướng dẫn lấy API Token -->
+  <div class="card" style="padding:18px 20px;margin-bottom:16px;background:#fffbeb;border-color:#fcd34d44">
+    <div style="font-size:13px;font-weight:600;color:#92400e;margin-bottom:10px"><i class="ti ti-help-circle"></i> Cách lấy API Token từ Haravan</div>
+    <div style="font-size:12px;color:#92400e;line-height:1.8">
+      1. Đăng nhập <b>Haravan Admin</b> → <b>Cài đặt</b> (Settings)<br>
+      2. Chọn <b>Ứng dụng riêng tư</b> (Private Apps)<br>
+      3. Nhấn <b>Tạo ứng dụng riêng tư mới</b><br>
+      4. Đặt tên → Cấp quyền: <b>Read Orders, Read Products, Read Inventory</b><br>
+      5. Copy <b>Access Token</b> → Paste vào ô trên
+    </div>
+  </div>
+
+  <!-- Kết quả đồng bộ -->
+  <div id="hara-result"></div>`;
+}
+
+function bindHaravan(){
+  const status=document.getElementById('hara-status');
+  const cfg=JSON.parse(localStorage.getItem('haravan_cfg')||'{}');
+  if(cfg.token&&cfg.domain){
+    if(status) status.innerHTML='<span style="color:var(--success)">✅ Đã cấu hình · '+cfg.domain+'</span>';
+  }
+}
+
+function saveHaravanConfig(){
+  const domain=document.getElementById('hara-domain').value.trim().replace(/^https?:\/\//,'');
+  const token=document.getElementById('hara-token').value.trim();
+  if(!domain||!token){alert('Nhập đầy đủ Domain và Token!');return;}
+  localStorage.setItem('haravan_cfg',JSON.stringify({domain,token}));
+  testHaravanConnection();
+}
+
+async function testHaravanConnection(){
+  const cfg=JSON.parse(localStorage.getItem('haravan_cfg')||'{}');
+  const domain=document.getElementById('hara-domain')?.value.trim()||cfg.domain||'';
+  const token=document.getElementById('hara-token')?.value.trim()||cfg.token||'';
+  if(!domain||!token){alert('Nhập đầy đủ Domain và Token!');return;}
+  // Lưu tạm nếu chưa lưu
+  localStorage.setItem('haravan_cfg',JSON.stringify({domain,token}));
+  const status=document.getElementById('hara-status');
+  if(status) status.innerHTML='<span style="color:#2563eb">⏳ Đang kiểm tra...</span>';
+  try{
+    const res=await fetch('/haravan/shop.json',{
+      headers:{'x-haravan-token':token,'x-haravan-domain':domain}
+    });
+    const data=await res.json();
+    if(data.shop){
+      if(status) status.innerHTML=`<span style="color:var(--success)">✅ Kết nối thành công! Shop: <b>${data.shop.name||domain}</b> · Email: ${data.shop.email||''}</span>`;
+    } else {
+      if(status) status.innerHTML=`<span style="color:var(--danger)">❌ Lỗi: ${JSON.stringify(data).slice(0,100)}</span>`;
+    }
+  }catch(e){
+    if(status) status.innerHTML=`<span style="color:var(--danger)">❌ ${e.message}</span>`;
+  }
+}
+
+async function haravanSync(){
+  const cfg=JSON.parse(localStorage.getItem('haravan_cfg')||'{}');
+  if(!cfg.token||!cfg.domain){alert('Chưa cấu hình API Haravan!');return;}
+  const result=document.getElementById('hara-result');
+  if(result) result.innerHTML='<div class="card" style="padding:16px;text-align:center;color:#2563eb"><i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Đang tải dữ liệu từ Haravan...</div>';
+  try{
+    // Lấy đơn hàng
+    const [ordRes,invRes]=await Promise.all([
+      fetch('/haravan/orders.json?limit=50&status=any',{headers:{'x-haravan-token':cfg.token,'x-haravan-domain':cfg.domain}}),
+      fetch('/haravan/products.json?limit=50',{headers:{'x-haravan-token':cfg.token,'x-haravan-domain':cfg.domain}})
+    ]);
+    const ordData=await ordRes.json();
+    const invData=await invRes.json();
+    const orders=ordData.orders||[];
+    const products=invData.products||[];
+
+    // Tổng hợp
+    const totalRev=orders.reduce((s,o)=>s+parseFloat(o.total_price||0),0);
+    const pending=orders.filter(o=>o.financial_status==='pending').length;
+    const paid=orders.filter(o=>o.financial_status==='paid').length;
+
+    // Lưu vào db để dùng trong phần mềm
+    if(!db.haravanOrders) db.haravanOrders=[];
+    db.haravanOrders=orders.map(o=>({
+      id:o.id,code:o.order_number,date:o.created_at?.slice(0,10),
+      status:o.financial_status,fulfillment:o.fulfillment_status,
+      revenue:parseFloat(o.total_price||0),
+      customer:o.customer?.first_name||'',channel:o.source_name||'haravan',
+      items:(o.line_items||[]).map(i=>({name:i.name,qty:i.quantity,price:parseFloat(i.price)}))
+    }));
+    saveDB();
+
+    if(result) result.innerHTML=`
+    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+      <div class="stat-card"><div class="stat-lbl">Tổng đơn</div><div class="stat-val">${orders.length}</div></div>
+      <div class="stat-card" style="background:#f0fdf4"><div class="stat-lbl" style="color:#16a34a">Đã thanh toán</div><div class="stat-val" style="color:#16a34a">${paid}</div></div>
+      <div class="stat-card" style="background:#fffbeb"><div class="stat-lbl" style="color:#92400e">Chờ TT</div><div class="stat-val" style="color:#92400e">${pending}</div></div>
+      <div class="stat-card" style="background:#eff6ff"><div class="stat-lbl" style="color:#1d4ed8">Doanh thu</div><div style="font-size:16px;font-weight:700;color:#1d4ed8">${fmt(totalRev)}</div></div>
+    </div>
+    <div class="card">
+      <div style="padding:14px 16px;font-weight:600;font-size:13px;border-bottom:1px solid var(--border)">
+        <i class="ti ti-shopping-cart" style="color:#f59e0b"></i> ${orders.length} đơn hàng gần nhất từ Haravan
+      </div>
+      <div class="tbl-wrap"><table class="dtbl">
+        <thead><tr><th>Mã đơn</th><th>Ngày</th><th>Khách hàng</th><th>Kênh</th><th class="num">Doanh thu</th><th>Thanh toán</th><th>Giao hàng</th></tr></thead>
+        <tbody>${orders.slice(0,20).map(o=>`<tr>
+          <td><span class="badge b-blue">#${o.order_number}</span></td>
+          <td style="font-size:12px;color:var(--text2)">${(o.created_at||'').slice(0,10)}</td>
+          <td style="font-size:12px">${(o.customer?.first_name||'')+(o.customer?.last_name?(' '+o.customer.last_name):'')}</td>
+          <td style="font-size:11px;color:var(--text3)">${o.source_name||'—'}</td>
+          <td class="num" style="font-weight:600;color:#1d4ed8">${fmt(parseFloat(o.total_price||0))}</td>
+          <td><span class="badge" style="font-size:10px;background:${o.financial_status==='paid'?'#d1fae5':'#fef3c7'};color:${o.financial_status==='paid'?'#065f46':'#92400e'}">${o.financial_status||'—'}</span></td>
+          <td><span class="badge" style="font-size:10px;background:#f3f4f6;color:#6b7280">${o.fulfillment_status||'unfulfilled'}</span></td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+  }catch(e){
+    if(result) result.innerHTML=`<div class="card" style="padding:16px;color:var(--danger)">❌ Lỗi: ${e.message}</div>`;
+  }
+}
+// ── END HARAVAN ──
+
 function pThuChi(){
   if(!db.thuChi) db.thuChi=[];
   const rows=db.thuChi;
@@ -4526,6 +4683,9 @@ function pOrderDetail(id){
         <i class="ti ti-palette" style="color:#e11d48"></i>Màu sắc & Số lượng sản xuất
         <span class="badge" style="background:#fff1f2;color:#e11d48;font-size:11px">${(o.colors||[]).length} màu &nbsp;·&nbsp; ${totalQty.toLocaleString('vi-VN')} sp</span>
       </div>
+      <button class="btn btn-sec btn-sm no-print" onclick="exportColorTableExcel('${id}')" style="border-color:#1d6f42;color:#1d6f42">
+        <i class="ti ti-file-spreadsheet"></i> Xuất Excel
+      </button>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--border)">
@@ -4546,7 +4706,9 @@ function pOrderDetail(id){
           <thead><tr style="background:#ffeaea">
             <th style="padding:6px 8px;font-size:10px;color:#e11d48;font-weight:600;min-width:80px">Mã sỉ</th>
             <th style="padding:6px 8px;font-size:10px;color:#e11d48;font-weight:600">Tên màu</th>
-            <th style="padding:6px 8px;font-size:10px;color:#e11d48;font-weight:600;text-align:right;min-width:80px">SL sản xuất</th>
+            <th style="padding:6px 8px;font-size:10px;color:#e11d48;font-weight:600;text-align:right;min-width:70px">SL sản xuất</th>
+            <th style="padding:6px 8px;font-size:10px;color:#e11d48;font-weight:600;text-align:right;min-width:70px">Định mức</th>
+            <th style="padding:6px 8px;font-size:10px;color:#6366f1;font-weight:600;text-align:right;min-width:70px">SL sỉ cần</th>
             <th class="no-print" style="width:30px"></th>
           </tr></thead>
           <tbody>${colorsChinh.map((c,i)=>{
@@ -4554,6 +4716,8 @@ function pOrderDetail(id){
             const r2=parseInt(hex.slice(1,3),16),g2=parseInt(hex.slice(3,5),16),b2=parseInt(hex.slice(5,7),16);
             const tc=(0.299*r2+0.587*g2+0.114*b2)/255>0.55?'#1a1a1a':'#fff';
             const det=c.colorName?detectColor(c.colorName):null;
+            const dm=c.dm||0;
+            const slSi=dm>0?parseFloat((c.qty*dm).toFixed(2)):0;
             return`<tr style="border-bottom:1px solid #fca5a533">
               <td style="padding:4px 6px;min-width:150px">${renderNPLDropdown(id,ci,c,p,true)}</td>
               <td style="padding:6px 8px">
@@ -4561,14 +4725,23 @@ function pOrderDetail(id){
                 <div id="chint-${id}-${ci}" style="font-size:10px;color:${det?'var(--success)':'var(--text3)'}">${det?'✓ Nhận màu':''}</div>
               </td>
               <td style="padding:6px 8px;text-align:right">
-                <input type="number" value="${c.qty||0}" min="0" onchange="updOCQty('${id}',${ci},+this.value)" style="width:70px;padding:4px 6px;border:1px solid var(--border2);border-radius:6px;font-size:13px;font-weight:700;text-align:right;font-family:inherit">
+                <input type="number" value="${c.qty||0}" min="0" onchange="updOCQty('${id}',${ci},+this.value)" style="width:65px;padding:4px 6px;border:1px solid var(--border2);border-radius:6px;font-size:13px;font-weight:700;text-align:right;font-family:inherit">
+              </td>
+              <td style="padding:6px 8px;text-align:right">
+                <input type="number" value="${dm||''}" min="0" step="0.001" placeholder="0.00" onchange="updOCDm('${id}',${ci},+this.value)" style="width:65px;padding:4px 6px;border:1px solid #fca5a5;border-radius:6px;font-size:12px;text-align:right;font-family:inherit;background:#fff5f5">
+              </td>
+              <td style="padding:6px 8px;text-align:right;font-weight:700;color:#6366f1;font-size:13px">
+                ${slSi>0?slSi.toLocaleString('vi-VN'):'—'}
               </td>
               <td class="no-print" style="padding:4px;text-align:center">
                 <button class="btn btn-ghost btn-sm" onclick="delOC('${id}',${ci})" style="padding:3px 5px"><i class="ti ti-trash" style="font-size:12px;color:var(--danger)"></i></button>
               </td>
             </tr>`;}).join('')}</tbody>
         </table>
-        <div style="padding:7px 12px;background:#ffeaea;font-size:12px;font-weight:600;text-align:right;color:#e11d48">Tổng: ${qtyChinh.toLocaleString('vi-VN')} sp</div>`
+        <div style="padding:7px 12px;background:#ffeaea;font-size:12px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
+          <span style="color:#6366f1">Tổng SL sỉ cần: <b>${colorsChinh.reduce((s,c)=>s+(c.dm||0)>0?s+(c.qty*(c.dm||0)):s,0).toFixed(2)} m</b></span>
+          <span style="color:#e11d48">Tổng SX: ${qtyChinh.toLocaleString('vi-VN')} sp</span>
+        </div>`
         : `<div style="padding:20px;text-align:center;font-size:12px;color:var(--text3)">Chưa có màu Sỉ chính</div>`}
       </div>
 
@@ -4588,7 +4761,9 @@ function pOrderDetail(id){
           <thead><tr style="background:#fef3c7">
             <th style="padding:6px 8px;font-size:10px;color:#d97706;font-weight:600;min-width:80px">Mã sỉ</th>
             <th style="padding:6px 8px;font-size:10px;color:#d97706;font-weight:600">Tên màu</th>
-            <th style="padding:6px 8px;font-size:10px;color:#d97706;font-weight:600;text-align:right;min-width:80px">SL sản xuất</th>
+            <th style="padding:6px 8px;font-size:10px;color:#d97706;font-weight:600;text-align:right;min-width:70px">SL sản xuất</th>
+            <th style="padding:6px 8px;font-size:10px;color:#d97706;font-weight:600;text-align:right;min-width:70px">Định mức</th>
+            <th style="padding:6px 8px;font-size:10px;color:#6366f1;font-weight:600;text-align:right;min-width:70px">SL sỉ cần</th>
             <th class="no-print" style="width:30px"></th>
           </tr></thead>
           <tbody>${colorsPhu.map((c,i)=>{
@@ -4596,6 +4771,8 @@ function pOrderDetail(id){
             const r2=parseInt(hex.slice(1,3),16),g2=parseInt(hex.slice(3,5),16),b2=parseInt(hex.slice(5,7),16);
             const tc=(0.299*r2+0.587*g2+0.114*b2)/255>0.55?'#1a1a1a':'#fff';
             const det=c.colorName?detectColor(c.colorName):null;
+            const dm=c.dm||0;
+            const slSi=dm>0?parseFloat((c.qty*dm).toFixed(2)):0;
             return`<tr style="border-bottom:1px solid #fcd34d33">
               <td style="padding:4px 6px;min-width:170px">
                 ${renderNPLDropdown(id,ci,c,p,true)}
@@ -4605,14 +4782,23 @@ function pOrderDetail(id){
                 <div id="chint-${id}-${ci}" style="font-size:10px;color:${det?'var(--success)':'var(--text3)'}">${det?'✓ Nhận màu':''}</div>
               </td>
               <td style="padding:6px 8px;text-align:right">
-                <input type="number" value="${c.qty||0}" min="0" onchange="updOCQty('${id}',${ci},+this.value)" style="width:70px;padding:4px 6px;border:1px solid var(--border2);border-radius:6px;font-size:13px;font-weight:700;text-align:right;font-family:inherit">
+                <input type="number" value="${c.qty||0}" min="0" onchange="updOCQty('${id}',${ci},+this.value)" style="width:65px;padding:4px 6px;border:1px solid var(--border2);border-radius:6px;font-size:13px;font-weight:700;text-align:right;font-family:inherit">
+              </td>
+              <td style="padding:6px 8px;text-align:right">
+                <input type="number" value="${dm||''}" min="0" step="0.001" placeholder="0.00" onchange="updOCDm('${id}',${ci},+this.value)" style="width:65px;padding:4px 6px;border:1px solid #fcd34d;border-radius:6px;font-size:12px;text-align:right;font-family:inherit;background:#fef9ec">
+              </td>
+              <td style="padding:6px 8px;text-align:right;font-weight:700;color:#6366f1;font-size:13px">
+                ${slSi>0?slSi.toLocaleString('vi-VN'):'—'}
               </td>
               <td class="no-print" style="padding:4px;text-align:center">
                 <button class="btn btn-ghost btn-sm" onclick="delOC('${id}',${ci})" style="padding:3px 5px"><i class="ti ti-trash" style="font-size:12px;color:var(--danger)"></i></button>
               </td>
             </tr>`;}).join('')}</tbody>
         </table>
-        <div style="padding:7px 12px;background:#fef3c7;font-size:12px;font-weight:600;text-align:right;color:#d97706">Tổng: ${qtyPhu.toLocaleString('vi-VN')} sp</div>`
+        <div style="padding:7px 12px;background:#fef3c7;font-size:12px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
+          <span style="color:#6366f1">Tổng SL sỉ cần: <b>${colorsPhu.reduce((s,c)=>s+(c.dm||0)>0?s+(c.qty*(c.dm||0)):s,0).toFixed(2)} m</b></span>
+          <span style="color:#d97706">Tổng SX: ${qtyPhu.toLocaleString('vi-VN')} sp</span>
+        </div>`
         : `<div style="padding:20px;text-align:center;font-size:12px;color:var(--text3)">Chưa có màu Sỉ phụ</div>`}
       </div>
     </div>
@@ -4899,6 +5085,46 @@ function updOC(id,ci,field,val){
 function updOCQty(id,ci,val){
   const o=db.orders.find(x=>x.id===id);if(!o||!o.colors[ci])return;
   o.colors[ci].qty=val;saveDB();go('order-detail',id);
+}
+function updOCDm(id,ci,val){
+  const o=db.orders.find(x=>x.id===id);if(!o||!o.colors[ci])return;
+  o.colors[ci].dm=val;saveDB();go('order-detail',id);
+}
+function exportColorTableExcel(id){
+  const o=db.orders.find(x=>x.id===id);if(!o)return;
+  const p=GP(o.productId);
+  const rows=[['Nhóm','Mã sỉ','Tên màu','SL sản xuất (sp)','Định mức (m/sp)','SL sỉ cần (m)']];
+  const allColors=(o.colors||[]).map((c,ci)=>({...c,_ci:ci}));
+  const chinh=allColors.filter(c=>c.siType!=='phu');
+  const phu=allColors.filter(c=>c.siType==='phu');
+  let tcSX=0,tcSi=0;
+  chinh.forEach(c=>{
+    const mat=(db.materials||[]).find(m=>m.code===(c.siMatCode||c.colorCode));
+    const siName=mat?mat.name:(c.siMatCode||c.colorCode||'—');
+    const dm=c.dm||0;
+    const slSi=dm>0?parseFloat((c.qty*dm).toFixed(3)):0;
+    rows.push(['Sỉ chính',siName,c.colorName||'',c.qty||0,dm||'',slSi||'']);
+    tcSX+=(c.qty||0); tcSi+=slSi;
+  });
+  rows.push(['Tổng Sỉ chính','','',tcSX,'',tcSi.toFixed(3)]);
+  rows.push([]);
+  let tpSX=0,tpSi=0;
+  phu.forEach(c=>{
+    const mat=(db.materials||[]).find(m=>m.code===(c.siMatCode||c.colorCode));
+    const siName=mat?mat.name:(c.siMatCode||c.colorCode||'—');
+    const dm=c.dm||0;
+    const slSi=dm>0?parseFloat((c.qty*dm).toFixed(3)):0;
+    rows.push(['Sỉ phụ',siName,c.colorName||'',c.qty||0,dm||'',slSi||'']);
+    tpSX+=(c.qty||0); tpSi+=slSi;
+  });
+  if(phu.length) rows.push(['Tổng Sỉ phụ','','',tpSX,'',tpSi.toFixed(3)]);
+
+  const csv=rows.map(r=>r.map(v=>{const s=String(v==null?'':v);return s.includes(',')||s.includes('"')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`MauSac_${o.orderCode||id}_${today()}.csv`;
+  a.click();URL.revokeObjectURL(a.href);
 }
 function delOC(id,ci){
   const o=db.orders.find(x=>x.id===id);if(!o)return;
