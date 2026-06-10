@@ -3604,13 +3604,12 @@ async function exportOrderExcel(id){
     const dmSC=dmListSC.reduce((s,b)=>s+(b.dm||0)*(1+(b.hh||0)/100),0);
     let totalSlSC=0;
     colorsChinh.forEach(c=>{
-      const slCan=+(((c.qty||0)*dmSC).toFixed(2));
+      const dmC=getColorDm(o,p,c)||dmSC; // per-màu, fallback BOM
+      const slCan=+(((c.qty||0)*dmC).toFixed(2));
       totalSlSC+=slCan;
       const row=ws.getRow(r);
-      // Cột Mã sỉ: tô màu nền theo màu thực tế
       const hex=(c.colorHex||'#cccccc').replace('#','');
       const argb='FF'+hex.toUpperCase();
-      // Xác định màu chữ tương phản (trắng/đen) theo độ sáng nền
       const rr=parseInt(hex.slice(0,2),16),gg=parseInt(hex.slice(2,4),16),bb=parseInt(hex.slice(4,6),16);
       const lum=(0.299*rr+0.587*gg+0.114*bb)/255;
       const txtArgb=lum>0.5?'FF000000':'FFFFFFFF';
@@ -3622,7 +3621,7 @@ async function exportOrderExcel(id){
       row.getCell(1).font={bold:true,color:{argb:txtArgb}};
       row.getCell(2).value=c.colorName||'—';
       row.getCell(3).value=c.qty||0;
-      row.getCell(4).value=dmSC>0?+dmSC.toFixed(3):'—';
+      row.getCell(4).value=dmC>0?+dmC.toFixed(3):'—';
       row.getCell(5).value=slCan||0;
       row.getCell(5).font={bold:true,color:{argb:'FF7C3AED'}};
       row.height=16; r++;
@@ -3654,7 +3653,8 @@ async function exportOrderExcel(id){
       const dmSP=dmListSP.reduce((s,b)=>s+(b.dm||0)*(1+(b.hh||0)/100),0);
       let totalSlSP=0;
       colorsPhu.forEach(c=>{
-        const slCan=+(((c.qty||0)*dmSP).toFixed(2));
+        const dmC=getColorDm(o,p,c)||dmSP; // per-màu, fallback BOM
+        const slCan=+(((c.qty||0)*dmC).toFixed(2));
         totalSlSP+=slCan;
         const row=ws.getRow(r);
         const hex2=(c.colorHex||'#cccccc').replace('#','');
@@ -3670,7 +3670,7 @@ async function exportOrderExcel(id){
         row.getCell(1).font={bold:true,color:{argb:txtArgb2}};
         row.getCell(2).value=c.colorName||'—';
         row.getCell(3).value=c.qty||0;
-        row.getCell(4).value=dmSP>0?+dmSP.toFixed(3):'—';
+        row.getCell(4).value=dmC>0?+dmC.toFixed(3):'—';
         row.getCell(5).value=slCan||0;
         row.getCell(5).font={bold:true,color:{argb:'FF7C3AED'}};
         row.height=16; r++;
@@ -4683,7 +4683,7 @@ function pOrderDetail(id){
         <i class="ti ti-palette" style="color:#e11d48"></i>Màu sắc & Số lượng sản xuất
         <span class="badge" style="background:#fff1f2;color:#e11d48;font-size:11px">${(o.colors||[]).length} màu &nbsp;·&nbsp; ${totalQty.toLocaleString('vi-VN')} sp</span>
       </div>
-      <button class="btn btn-sec btn-sm no-print" onclick="exportColorTableExcel('${id}')" style="border-color:#1d6f42;color:#1d6f42">
+      <button class="btn btn-sec btn-sm no-print" onclick="exportOrderExcel('${id}')" style="border-color:#1d6f42;color:#1d6f42">
         <i class="ti ti-file-spreadsheet"></i> Xuất Excel
       </button>
     </div>
