@@ -1635,6 +1635,190 @@ function updPMStyle(){
   if(bl) bl.style.borderColor=!isCash?'#2563eb':'var(--border2)';
 }
 
+function importProductsFromExcel(input){
+  const file=input.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+
+      // Tìm dòng header (chứa "Mã hàng")
+      let hdrRow=-1;
+      for(let i=0;i<Math.min(rows.length,6);i++){
+        const r=rows[i].map(v=>String(v||'').toLowerCase());
+        if(r.some(v=>v.includes('mã hàng')||v.includes('ma hang'))){hdrRow=i;break;}
+      }
+      if(hdrRow<0){alert('Không tìm thấy dòng header "Mã hàng" trong file!');input.value='';return;}
+
+      const hdrs=rows[hdrRow].map(v=>String(v||'').toLowerCase().trim());
+      const iCode=hdrs.findIndex(v=>v.includes('mã hàng')||v.includes('ma hang'));
+      const iName=hdrs.findIndex(v=>v.includes('tên')||v.includes('ten')||v.includes('name'));
+      const iFac =hdrs.findIndex(v=>v.includes('xưởng')||v.includes('xuong')||v.includes('factory'));
+
+      if(iCode<0){alert('Cột "Mã hàng" là bắt buộc!');input.value='';return;}
+
+      let added=0, updated=0, skipped=0;
+      const dataRows=rows.slice(hdrRow+1).filter(r=>r[iCode]&&String(r[iCode]).trim());
+
+      dataRows.forEach(r=>{
+        const code=String(r[iCode]||'').trim();
+        const name=iName>=0?String(r[iName]||'').trim():'';
+        const facRaw=iFac>=0?String(r[iFac]||'').trim():'';
+
+        if(!code){skipped++;return;}
+
+        const existing=db.products.find(p=>p.code===code);
+        if(existing){
+          // Cập nhật tên và xưởng nếu có dữ liệu mới
+          if(name&&name!==existing.name) existing.name=name;
+          if(facRaw){
+            // Thêm xưởng vào processes nếu chưa có
+            if(!existing.processes) existing.processes=[];
+            const facs=facRaw.split(/[,;]+/).map(f=>f.trim()).filter(Boolean);
+            facs.forEach(fn=>{
+              const fObj=db.factories.find(f=>f.name===fn||f.code===fn);
+              if(fObj&&!existing.processes.find(pr=>pr.facCode===fObj.code)){
+                existing.processes.push({facCode:fObj.code,facName:fObj.name,processName:'',unit:'sp',price:0});
+              }
+            });
+          }
+          existing.updatedAt=today();
+          updated++;
+        } else {
+          // Tạo mới
+          const newP={id:uid(),code,name:name||code,qty:1,
+            bom:[],processes:[],shipping:[],images:[],updatedAt:today()};
+          if(facRaw){
+            const facs=facRaw.split(/[,;]+/).map(f=>f.trim()).filter(Boolean);
+            facs.forEach(fn=>{
+              const fObj=db.factories.find(f=>f.name===fn||f.code===fn);
+              if(fObj) newP.processes.push({facCode:fObj.code,facName:fObj.name,processName:'',unit:'sp',price:0});
+            });
+          }
+          db.products.push(newP);
+          added++;
+        }
+      });
+
+      saveDB();
+      input.value='';
+      // Hiện kết quả
+      const msg=`✅ Import hoàn tất!\n\n➕ Thêm mới: ${added} mã hàng\n✏️ Cập nhật: ${updated} mã hàng${skipped?`\n⚠️ Bỏ qua: ${skipped} dòng trống`:''}\n\n📝 Lưu ý: Bạn có thể upload ảnh riêng cho từng sản phẩm sau khi import.`;
+      alert(msg);
+      go('products');
+    }catch(err){
+      alert('❌ Lỗi đọc file: '+err.message);
+      input.value='';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function exportProductCatalog(){
+  if(typeof ExcelJS==='undefined'){alert('Đang tải thư viện, vui lòng thử lại.');return;}
+  const btn=event?.target?.closest('button');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2"></i> Đang tạo...';}
+
+  const wb=new ExcelJS.Workbook();
+  wb.creator='QUANLYSAOKIM'; wb.created=new Date();
+  const ws=wb.addWorksheet('Mã Hàng');
+
+  ws.columns=[
+    {width:6},   // STT
+    {width:14},  // Mã hàng
+    {width:32},  // Tên sản phẩm
+    {width:24},  // Xưởng sản xuất
+    {width:22},  // Hình ảnh
+  ];
+
+  // Tiêu đề
+  const t=ws.getRow(1);
+  t.getCell(1).value='DANH SÁCH MÃ HÀNG THÀNH PHẨM – SAO KIM';
+  t.getCell(1).font={bold:true,size:13,color:{argb:'FF1a1a2e'}};
+  ws.mergeCells('A1:E1'); t.height=26;
+
+  const s=ws.getRow(2);
+  s.getCell(1).value=`Xuất ngày: ${new Date().toLocaleDateString('vi-VN')} · ${db.products.length} mã hàng`;
+  s.getCell(1).font={italic:true,size:9,color:{argb:'FF6b7280'}};
+  ws.mergeCells('A2:E2'); s.height=16;
+
+  // Header cột
+  const h=ws.getRow(3);
+  [['STT','center'],['Mã hàng','center'],['Tên sản phẩm','left'],['Xưởng sản xuất','center'],['Hình ảnh','center']].forEach(([v,al],i)=>{
+    const c=h.getCell(i+1);
+    c.value=v;
+    c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1a1a2e'}};
+    c.font={bold:true,color:{argb:'FFFFFFFF'},size:10};
+    c.alignment={vertical:'middle',horizontal:al};
+  });
+  h.height=26;
+
+  const IMG_H=80;
+  const ROW_H=IMG_H*0.75+4;
+
+  let stt=1;
+  for(const p of db.products){
+    const rowIdx=3+stt;
+    const row=ws.getRow(rowIdx);
+    row.height=ROW_H;
+
+    // Xưởng SX từ quy trình
+    const facs=[...new Set((p.processes||[]).map(pr=>pr.facName||pr.facCode||'').filter(Boolean))];
+    const facStr=facs.length?facs.join(', '):'—';
+
+    row.getCell(1).value=stt;
+    row.getCell(1).alignment={vertical:'middle',horizontal:'center'};
+    row.getCell(1).font={size:10,color:{argb:'FF6b7280'}};
+
+    row.getCell(2).value=p.code||'—';
+    row.getCell(2).font={bold:true,size:11,color:{argb:'FF2563EB'}};
+    row.getCell(2).alignment={vertical:'middle',horizontal:'center'};
+
+    row.getCell(3).value=p.name||'—';
+    row.getCell(3).font={size:11};
+    row.getCell(3).alignment={vertical:'middle',wrapText:true};
+
+    row.getCell(4).value=facStr;
+    row.getCell(4).alignment={vertical:'middle',horizontal:'center',wrapText:true};
+    row.getCell(4).font={size:10};
+
+    // Ảnh nhúng cột E
+    const img=(p.images||[])[0];
+    if(img?.data){
+      try{
+        const m=img.data.match(/^data:image\/(\w+);base64,(.+)$/);
+        if(m){
+          const imgId=wb.addImage({base64:m[2],extension:m[1]==='jpg'?'jpeg':m[1]});
+          ws.addImage(imgId,{tl:{col:4.1,row:rowIdx-1+0.05},ext:{width:IMG_H,height:IMG_H}});
+        }
+      }catch(e){}
+    }
+
+    // Zebra
+    if(stt%2===0){
+      for(let ci=1;ci<=4;ci++)
+        row.getCell(ci).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF9FAFB'}};
+    }
+
+    // Border
+    for(let ci=1;ci<=5;ci++)
+      row.getCell(ci).border={top:{style:'thin',color:{argb:'FFE5E7EB'}},left:{style:'thin',color:{argb:'FFE5E7EB'}},bottom:{style:'thin',color:{argb:'FFE5E7EB'}},right:{style:'thin',color:{argb:'FFE5E7EB'}}};
+
+    stt++;
+  }
+
+  ws.views=[{state:'frozen',ySplit:3}];
+
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`MaHang_SaoKim_${today()}.xlsx`;
+  a.click(); URL.revokeObjectURL(a.href);
+  if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-file-spreadsheet"></i> Xuất catalog Excel';}
+}
 function bindPhaiThu(){
   ['pt-modal','receipt-modal','debt-modal'].forEach(id=>{
     const m=document.getElementById(id);
@@ -2465,7 +2649,16 @@ function pProducts(){
   return `
   <div class="page-hdr">
     <div><div class="page-title">Mã hàng thành phẩm</div><div class="page-sub">${total} mã hàng</div></div>
-    <button class="btn btn-primary" onclick="openMProd(null)"><i class="ti ti-plus"></i> Thêm mã hàng</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sec" onclick="document.getElementById('import-prod-file').click()" style="border-color:#7c3aed;color:#7c3aed">
+        <i class="ti ti-file-import"></i> Import Excel
+      </button>
+      <input type="file" id="import-prod-file" accept=".xlsx,.xls" style="display:none" onchange="importProductsFromExcel(this)">
+      <button class="btn btn-sec" onclick="exportProductCatalog()" style="border-color:#1d6f42;color:#1d6f42">
+        <i class="ti ti-file-spreadsheet"></i> Xuất Excel
+      </button>
+      <button class="btn btn-primary" onclick="openMProd(null)"><i class="ti ti-plus"></i> Thêm mã hàng</button>
+    </div>
   </div>
 
   <!-- SEARCH BAR -->
