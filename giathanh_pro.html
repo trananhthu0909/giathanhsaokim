@@ -184,6 +184,7 @@ table.dtbl{width:100%;border-collapse:collapse}
     <div class="n-item" id="nav-products" onclick="go('products')"><i class="ti ti-tag"></i>Mã hàng thành phẩm</div>
     <div class="n-item" id="nav-orders" onclick="go('orders')"><i class="ti ti-clipboard-list"></i>Đơn hàng sản xuất</div>
     <div class="n-item" id="nav-import-orders" onclick="go('import-orders')"><i class="ti ti-truck-delivery"></i>Đơn hàng nhập ngoài</div>
+    <div class="n-item" id="nav-import-tracking" onclick="go('import-tracking')"><i class="ti ti-box-seam" style="color:#8b5cf6"></i>Theo dõi hàng nhập</div>
     <div class="n-sec">Danh mục</div>
     <div class="n-item" id="nav-materials" onclick="go('materials')"><i class="ti ti-needle-thread"></i>Nguyên phụ liệu</div>
     <div class="n-item" id="nav-factories" onclick="go('factories')"><i class="ti ti-building-factory-2"></i>Xưởng gia công</div>
@@ -312,6 +313,7 @@ function render(){
   else if(st.page==='factories') el.innerHTML=pFactories();
   else if(st.page==='orders') el.innerHTML=pOrders();
   else if(st.page==='import-orders') el.innerHTML=pImportOrders();
+  else if(st.page==='import-tracking') el.innerHTML=pImportTracking();
   else if(st.page==='import-order-detail'){
     try{el.innerHTML=pImportOrderDetail(st.pid);}
     catch(e){el.innerHTML=`<div class="card" style="padding:24px;color:var(--danger)"><b>Lỗi:</b> ${e.message}</div>`;console.error(e);}
@@ -2099,18 +2101,154 @@ function pImportOrders(){
       </tbody></table></div></div>`}`;
 }
 
+// ── THEO DÕI HÀNG NHẬP ──
+// Tổng hợp từ db.importOrders theo từng sản phẩm + db.importItems (nhập lẻ không qua đơn)
+function initImportTracking(){if(!db.importItems)db.importItems=[];}
+
+// Gọi sau mỗi lần thêm/sửa đơn nhập → tự cập nhật tổng hợp
+function autoUpdateImportTracking(){
+  initImportTracking();
+  // Tổng hợp từ importOrders (đơn có trạng thái done/received)
+  const summary={};
+  (db.importOrders||[]).forEach(o=>{
+    if(!o.productId) return;
+    const key=o.productId;
+    if(!summary[key]) summary[key]={productId:key,totalQty:0,totalValue:0,lastDate:'',orders:[]};
+    const qty=(o.colors||[]).reduce((s,c)=>s+(c.qty||0),0);
+    const val=qty*(o.buyPrice||0);
+    summary[key].totalQty+=qty;
+    summary[key].totalValue+=val;
+    if(!summary[key].lastDate||o.orderDate>summary[key].lastDate) summary[key].lastDate=o.orderDate||'';
+    summary[key].orders.push({id:o.id,code:o.orderCode,date:o.orderDate,qty,price:o.buyPrice||0,status:o.status});
+  });
+  db.importSummary=summary;
+  saveDB();
+}
+
+function pImportTracking(){
+  initImportTracking();
+  autoUpdateImportTracking();
+  const summary=db.importSummary||{};
+  const items=Object.values(summary).sort((a,b)=>(b.lastDate||'').localeCompare(a.lastDate||''));
+  const totalProducts=items.length;
+  const totalQty=items.reduce((s,x)=>s+x.totalQty,0);
+  const totalValue=items.reduce((s,x)=>s+x.totalValue,0);
+
+  return`<div class="page-hdr">
+    <div>
+      <div class="page-title"><i class="ti ti-box-seam" style="color:#8b5cf6"></i> Theo dõi hàng nhập</div>
+      <div class="page-sub">Tổng hợp tự động từ đơn nhập · ${totalProducts} mã hàng</div>
+    </div>
+    <button class="btn btn-primary" onclick="go('import-orders')"><i class="ti ti-plus"></i> Tạo đơn nhập mới</button>
+  </div>
+
+  <!-- KPI -->
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+    <div class="stat-card" style="background:#f5f3ff;border-color:#8b5cf633">
+      <div class="stat-lbl" style="color:#7c3aed">Mã hàng đang theo dõi</div>
+      <div style="font-size:24px;font-weight:700;color:#7c3aed">${totalProducts}</div>
+    </div>
+    <div class="stat-card" style="background:#f0fdf4;border-color:#22c55e33">
+      <div class="stat-lbl" style="color:#16a34a">Tổng số lượng đã nhập</div>
+      <div style="font-size:24px;font-weight:700;color:#16a34a">${totalQty.toLocaleString('vi-VN')} sp</div>
+    </div>
+    <div class="stat-card" style="background:#eff6ff;border-color:#2563eb33">
+      <div class="stat-lbl" style="color:#1d4ed8">Tổng giá trị nhập</div>
+      <div style="font-size:20px;font-weight:700;color:#1d4ed8">${fmt(totalValue)}</div>
+    </div>
+  </div>
+
+  ${items.length===0?`<div class="card" style="padding:32px;text-align:center;color:var(--text3)">
+    <i class="ti ti-box-off" style="font-size:40px;opacity:.3"></i>
+    <div style="margin-top:8px">Chưa có dữ liệu. Tạo đơn nhập để bắt đầu theo dõi.</div>
+  </div>`:
+  `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">
+    ${items.map(item=>{
+      const p=GP(item.productId);
+      const thumb=p&&(p.images||[]).length
+        ?`<img src="${p.images[0].data}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0">`
+        :`<div style="width:72px;height:72px;background:var(--bg2);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-photo-off" style="color:var(--text3);font-size:22px"></i></div>`;
+      const avgPrice=item.totalQty>0?(item.totalValue/item.totalQty):0;
+      const lastOrder=item.orders.sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
+      const doneOrders=item.orders.filter(o=>o.status==='done'||o.status==='received');
+      return`<div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:14px 16px;display:flex;gap:12px;align-items:flex-start">
+          ${thumb}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;color:#8b5cf6;font-weight:600">${p?p.code:'—'}</div>
+            <div style="font-weight:600;font-size:14px;margin:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p?p.name:'Sản phẩm không xác định'}</div>
+            <div style="font-size:11px;color:var(--text3)">
+              ${item.orders.length} đơn nhập · Hoàn thành: ${doneOrders.length}
+            </div>
+          </div>
+        </div>
+        <!-- Stats row -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+          <div style="padding:10px 12px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Tổng SL nhập</div>
+            <div style="font-size:16px;font-weight:700;color:#7c3aed">${item.totalQty.toLocaleString('vi-VN')}</div>
+            <div style="font-size:10px;color:var(--text3)">sp</div>
+          </div>
+          <div style="padding:10px 12px;text-align:center;border-left:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Giá TB/sp</div>
+            <div style="font-size:13px;font-weight:700;color:#2563eb">${fmt(Math.round(avgPrice))}</div>
+          </div>
+          <div style="padding:10px 12px;text-align:center;border-left:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:2px">Nhập gần nhất</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text2)">${item.lastDate?item.lastDate.split('-').reverse().join('/'):'—'}</div>
+          </div>
+        </div>
+        <!-- Lịch sử đơn nhập -->
+        <div style="padding:10px 14px;max-height:140px;overflow-y:auto">
+          ${item.orders.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(o=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)">
+            <span style="font-size:10px;color:#7c3aed;font-weight:600;white-space:nowrap">${o.code||'—'}</span>
+            <span style="color:var(--text3);white-space:nowrap">${o.date?o.date.split('-').reverse().join('/'):'—'}</span>
+            <span style="flex:1"></span>
+            <span style="font-weight:600">${(o.qty||0).toLocaleString('vi-VN')} sp</span>
+            <span style="color:var(--text2);font-size:10px">@ ${fmt(o.price||0)}</span>
+            <span style="font-size:10px;padding:1px 6px;border-radius:4px;${o.status==='done'||o.status==='received'?'background:#d1fae5;color:#065f46':'o.status==="processing"?"background:#eff6ff;color:#1d4ed8":"background:#f3f4f6;color:#6b7280'}">${{draft:'Nháp',confirmed:'Xác nhận',processing:'Đang nhập',done:'Hoàn thành',received:'Đã nhận',cancelled:'Hủy'}[o.status]||o.status}</span>
+            <button onclick="go('import-order-detail','${o.id}')" style="border:1px solid var(--border2);background:var(--bg);border-radius:4px;cursor:pointer;font-size:10px;padding:1px 5px;color:var(--text2)">Xem</button>
+          </div>`).join('')}
+        </div>
+        <div style="padding:8px 14px;display:flex;justify-content:flex-end;gap:6px">
+          <button class="btn btn-sec btn-sm" style="font-size:11px" onclick="go('products');setTimeout(()=>{const el=document.querySelector('[data-pid=\\'${item.productId}\\']');if(el)el.scrollIntoView({behavior:'smooth'})},500)">
+            <i class="ti ti-eye"></i> Xem SP
+          </button>
+          <button class="btn btn-primary btn-sm" style="font-size:11px;background:#8b5cf6;border-color:#8b5cf6" onclick="newImportOrderForProduct('${item.productId}')">
+            <i class="ti ti-plus"></i> Đơn nhập mới
+          </button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`}`;
+}
+
+function newImportOrderForProduct(productId){
+  initIO();
+  const o={id:uid(),orderCode:mkIOCode(),productId,supplier:'',
+    orderDate:today(),deliveryDate:'',status:'draft',
+    buyPrice:0,colors:[],note:''};
+  db.importOrders.push(o);
+  autoUpdateImportTracking();
+  saveDB();go('import-order-detail',o.id);
+}
+// ── END IMPORT TRACKING ──
+
 function newImportOrder(){
   initIO();
   const o={id:uid(),orderCode:mkIOCode(),productId:'',supplier:'',
     orderDate:today(),deliveryDate:'',status:'draft',
     buyPrice:0,colors:[],note:''};
   db.importOrders.push(o);
+  autoUpdateImportTracking();
   saveDB();go('import-order-detail',o.id);
 }
 
 function delIO(id){
   if(!confirm('Xóa đơn này?'))return;
   db.importOrders=(db.importOrders||[]).filter(o=>o.id!==id);
+  autoUpdateImportTracking();
   saveDB();go('import-orders');
 }
 
@@ -2644,6 +2782,7 @@ function pDash(){
 
 // ── PRODUCTS LIST ──
 let _prodQ='';
+let _prodType='all'; // 'all' | 'sx' | 'mua'
 function pProducts(){
   const total=db.products.length;
   return `
@@ -2662,8 +2801,8 @@ function pProducts(){
   </div>
 
   <!-- SEARCH BAR -->
-  <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center">
-    <div style="position:relative;flex:1;max-width:420px">
+  <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:220px;max-width:380px">
       <i class="ti ti-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:16px;pointer-events:none"></i>
       <input type="text" id="prod-search" value="${_prodQ}" placeholder="Tìm theo mã hàng hoặc tên sản phẩm…"
         oninput="_prodQ=this.value;renderProdTable()"
@@ -2676,7 +2815,25 @@ function pProducts(){
         <i class="ti ti-x"></i>
       </button>
     </div>
-    <div id="search-info" style="font-size:13px;color:var(--text2)"></div>
+    <!-- Dropdown loại hàng -->
+    <div style="display:flex;gap:6px;align-items:center">
+      <button onclick="_prodType='all';renderProdTable();updTypeBtn()"
+        id="pt-all"
+        style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid ${_prodType==='all'?'var(--accent)':'var(--border2)'};background:${_prodType==='all'?'#eff6ff':'var(--bg)'};color:${_prodType==='all'?'var(--accent)':'var(--text2)'}">
+        Tất cả <span style="background:var(--bg2);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">${db.products.length}</span>
+      </button>
+      <button onclick="_prodType='sx';renderProdTable();updTypeBtn()"
+        id="pt-sx"
+        style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid ${_prodType==='sx'?'#10b981':'var(--border2)'};background:${_prodType==='sx'?'#d1fae5':'var(--bg)'};color:${_prodType==='sx'?'#065f46':'var(--text2)'}">
+        🏭 Hàng SX <span style="background:var(--bg2);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">${db.products.filter(p=>p.productType!=='mua').length}</span>
+      </button>
+      <button onclick="_prodType='mua';renderProdTable();updTypeBtn()"
+        id="pt-mua"
+        style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid ${_prodType==='mua'?'#f59e0b':'var(--border2)'};background:${_prodType==='mua'?'#fef3c7':'var(--bg)'};color:${_prodType==='mua'?'#92400e':'var(--text2)'}">
+        🛒 Hàng mua <span style="background:var(--bg2);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">${db.products.filter(p=>p.productType==='mua').length}</span>
+      </button>
+    </div>
+    <div id="search-info" style="font-size:13px;color:var(--text2);margin-left:auto"></div>
   </div>
 
   <div class="card" id="prod-table-wrap">
@@ -2734,22 +2891,45 @@ function prodTableHTML(list){
   </table></div>`;
 }
 
+function updTypeBtn(){
+  const styles={
+    all:{border:'var(--accent)',bg:'#eff6ff',color:'var(--accent)'},
+    sx:{border:'#10b981',bg:'#d1fae5',color:'#065f46'},
+    mua:{border:'#f59e0b',bg:'#fef3c7',color:'#92400e'}
+  };
+  ['all','sx','mua'].forEach(t=>{
+    const btn=document.getElementById('pt-'+t);
+    if(!btn)return;
+    const active=_prodType===t;
+    const s=styles[t];
+    btn.style.borderColor=active?s.border:'var(--border2)';
+    btn.style.background=active?s.bg:'var(--bg)';
+    btn.style.color=active?s.color:'var(--text2)';
+  });
+}
+
 function renderProdTable(){
   const q=_prodQ.trim().toLowerCase();
-  const filtered=q
-    ? db.products.filter(p=>(p.code||'').toLowerCase().includes(q)||(p.name||'').toLowerCase().includes(q))
-    : db.products;
+  let filtered=db.products;
+  // Lọc theo loại
+  if(_prodType==='sx') filtered=filtered.filter(p=>p.productType!=='mua');
+  else if(_prodType==='mua') filtered=filtered.filter(p=>p.productType==='mua');
+  // Lọc theo tìm kiếm
+  if(q) filtered=filtered.filter(p=>(p.code||'').toLowerCase().includes(q)||(p.name||'').toLowerCase().includes(q));
 
   const wrap=document.getElementById('prod-table-wrap');
-  if(wrap) wrap.innerHTML=db.products.length===0
-    ?'<div class="empty"><i class="ti ti-tag"></i><p>Chưa có mã hàng nào.</p></div>'
+  if(wrap) wrap.innerHTML=filtered.length===0
+    ?`<div class="empty"><i class="ti ti-search-off"></i><p>${q||_prodType!=='all'?'Không tìm thấy mã hàng phù hợp.':'Chưa có mã hàng nào.'}</p></div>`
     :prodTableHTML(filtered);
 
   const info=document.getElementById('search-info');
-  if(info) info.textContent=q?`Tìm thấy ${filtered.length} / ${db.products.length} mã hàng`:'';
-
+  if(info){
+    const hasFilter=q||_prodType!=='all';
+    info.textContent=hasFilter?`${filtered.length} / ${db.products.length} mã hàng`:'';
+  }
   const clr=document.getElementById('search-clear');
   if(clr) clr.style.display=_prodQ?'flex':'none';
+  updTypeBtn();
 }
 
 // ── PRODUCT DETAIL ──
