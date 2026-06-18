@@ -4082,9 +4082,8 @@ async function exportOrderExcel(id){
   const ws1=wb.addWorksheet('Bảng Sỉ');
   const nMax=Math.max(colorsChinh.length,colorsPhu.length,1);
   ws1.columns=[
-    {width:16}, // Mã NPL / Mã sỉ
-    {width:22}, // Tên NPL / Màu sắc
-    {width:14}, // ĐVT / SL sản xuất
+    {width:16}, // Mã NPL
+    {width:18}, // Tên màu
     ...Array(nMax).fill(null).map(()=>({width:14})),
     {width:14},{width:18},{width:28}
   ];
@@ -4093,18 +4092,21 @@ async function exportOrderExcel(id){
   // SỈ CHÍNH
   groupLabel(ws1,r,'SỈ CHÍNH','FFE11D48'); r++;
   const hSC=ws1.getRow(r); hSC.getCell(1).value='Mã NPL';
-  colorsChinh.forEach((c,i)=>hSC.getCell(i+2).value=`${c.colorCode||'?'}\n(${(c.qty||0).toLocaleString()} sp)`);
-  hSC.getCell(colorsChinh.length+2).value='Giá nhập (₫)';
-  hSC.getCell(colorsChinh.length+3).value='Thành tiền (₫)';
-  hSC.getCell(colorsChinh.length+4).value='Nhà cung cấp';
+  hSC.getCell(2).value='Tên NPL';
+  colorsChinh.forEach((c,i)=>hSC.getCell(i+3).value=`${c.colorName||c.colorCode||'?'}\n(${(c.qty||0).toLocaleString()} sp)`);
+  hSC.getCell(colorsChinh.length+3).value='Giá nhập (₫)';
+  hSC.getCell(colorsChinh.length+4).value='Thành tiền (₫)';
+  hSC.getCell(colorsChinh.length+5).value='Nhà cung cấp';
   styleHdr(hSC); r++;
   matsSiChinh.forEach(m=>{
     const row=ws1.getRow(r);
-    row.getCell(1).value=m.matCode||'—';
-    colorsChinh.forEach((c,i)=>row.getCell(i+2).value=m.byColor[c._ci]>0?+m.byColor[c._ci].toFixed(2):0);
-    row.getCell(colorsChinh.length+2).value=m.price||0;
-    row.getCell(colorsChinh.length+3).value=+(m.toBuy*(m.price||0)).toFixed(0);
-    row.getCell(colorsChinh.length+4).value=getNCC(m.matCode);
+    const realCode=m.realMatCode||m.matCode||'—';
+    row.getCell(1).value=realCode;
+    row.getCell(2).value=m.matName||'—';
+    colorsChinh.forEach((c,i)=>row.getCell(i+3).value=m.byColor[c._ci]>0?+m.byColor[c._ci].toFixed(2):0);
+    row.getCell(colorsChinh.length+3).value=m.price||0;
+    row.getCell(colorsChinh.length+4).value=+(m.toBuy*(m.price||0)).toFixed(0);
+    row.getCell(colorsChinh.length+5).value=getNCC(realCode);
     row.height=18; r++;
   });
   r++; // dòng trống
@@ -4112,18 +4114,21 @@ async function exportOrderExcel(id){
   // SỈ PHỤ
   groupLabel(ws1,r,'SỈ PHỤ','FFD97706'); r++;
   const hSP=ws1.getRow(r); hSP.getCell(1).value='Mã NPL';
-  colorsPhu.forEach((c,i)=>hSP.getCell(i+2).value=`${c.colorCode||'?'}\n(${(c.qty||0).toLocaleString()} sp)`);
-  hSP.getCell(colorsPhu.length+2).value='Giá nhập (₫)';
-  hSP.getCell(colorsPhu.length+3).value='Thành tiền (₫)';
-  hSP.getCell(colorsPhu.length+4).value='Nhà cung cấp';
+  hSP.getCell(2).value='Tên NPL';
+  colorsPhu.forEach((c,i)=>hSP.getCell(i+3).value=`${c.colorName||c.colorCode||'?'}\n(${(c.qty||0).toLocaleString()} sp)`);
+  hSP.getCell(colorsPhu.length+3).value='Giá nhập (₫)';
+  hSP.getCell(colorsPhu.length+4).value='Thành tiền (₫)';
+  hSP.getCell(colorsPhu.length+5).value='Nhà cung cấp';
   styleHdr(hSP); r++;
   matsSiPhu.forEach(m=>{
     const row=ws1.getRow(r);
-    row.getCell(1).value=m.matCode||'—';
-    colorsPhu.forEach((c,i)=>row.getCell(i+2).value=m.byColor[c._ci]>0?+m.byColor[c._ci].toFixed(2):0);
-    row.getCell(colorsPhu.length+2).value=m.price||0;
-    row.getCell(colorsPhu.length+3).value=+(m.toBuy*(m.price||0)).toFixed(0);
-    row.getCell(colorsPhu.length+4).value=getNCC(m.matCode);
+    const realCode=m.realMatCode||m.matCode||'—';
+    row.getCell(1).value=realCode;
+    row.getCell(2).value=m.matName||'—';
+    colorsPhu.forEach((c,i)=>row.getCell(i+3).value=m.byColor[c._ci]>0?+m.byColor[c._ci].toFixed(2):0);
+    row.getCell(colorsPhu.length+3).value=m.price||0;
+    row.getCell(colorsPhu.length+4).value=+(m.toBuy*(m.price||0)).toFixed(0);
+    row.getCell(colorsPhu.length+5).value=getNCC(realCode);
     row.height=18; r++;
   });
 
