@@ -4380,6 +4380,7 @@ function applyColorHex(oid,ci,hex){
 // ── ĐƠN HÀNG SẢN XUẤT ──
 // ═══════════════════════════════════════
 let _orderQ='';
+let _orderStatus='all'; // 'all' | 'draft' | 'confirmed' | 'inprogress' | 'done' | 'cancelled'
 
 const ORDER_STATUS={
   draft:     {label:'Nháp',           color:'#6b7280',bg:'#f3f4f6'},
@@ -4665,8 +4666,8 @@ function pOrders(){
       <button class="btn btn-primary" onclick="openMOrder(null)"><i class="ti ti-plus"></i> Tạo đơn hàng</button>
     </div>
   </div>
-  <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center">
-    <div style="position:relative;flex:1;max-width:420px">
+  <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:220px;max-width:380px">
       <i class="ti ti-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:16px;pointer-events:none"></i>
       <input type="text" id="order-search" value="${_orderQ}" placeholder="Tìm mã đơn, tên sản phẩm…"
         oninput="_orderQ=this.value;renderOrderTable()"
@@ -4676,6 +4677,21 @@ function pOrders(){
     </div>
     <div id="order-search-info" style="font-size:13px;color:var(--text2)"></div>
   </div>
+  <!-- Bộ lọc trạng thái -->
+  <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap" id="order-status-filters">
+    ${[['all','Tất cả',null],['draft','Nháp',ORDER_STATUS.draft],['confirmed','Đã xác nhận',ORDER_STATUS.confirmed],
+       ['inprogress','Đang sản xuất',ORDER_STATUS.inprogress],['done','Hoàn thành',ORDER_STATUS.done],
+       ['cancelled','Đã hủy',ORDER_STATUS.cancelled]].map(([key,label,st])=>{
+      const cnt=key==='all'?db.orders.length:db.orders.filter(o=>o.status===key).length;
+      const active=_orderStatus===key;
+      const color=st?st.color:'var(--accent)';
+      const bg=st?st.bg:'#eff6ff';
+      return`<button onclick="_orderStatus='${key}';renderOrderTable()" id="osf-${key}"
+        style="padding:6px 13px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid ${active?color:'var(--border2)'};background:${active?bg:'var(--bg)'};color:${active?color:'var(--text2)'}">
+        ${label} <span style="background:var(--bg2);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">${cnt}</span>
+      </button>`;
+    }).join('')}
+  </div>
   <div class="card" id="order-table-wrap">
     ${total===0
       ?'<div class="empty"><i class="ti ti-clipboard-list"></i><p>Chưa có đơn hàng nào.<br>Nhấn "Tạo đơn hàng" để bắt đầu.</p></div>'
@@ -4684,7 +4700,7 @@ function pOrders(){
 }
 
 function orderTableHTML(list){
-  if(!list.length) return`<div class="empty"><i class="ti ti-zoom-question"></i><p>Không tìm thấy đơn hàng nào khớp với "<b>${_orderQ}</b>".</p></div>`;
+  if(!list.length) return`<div class="empty"><i class="ti ti-zoom-question"></i><p>Không tìm thấy đơn hàng nào khớp với bộ lọc hiện tại.</p></div>`;
   return`<div class="tbl-wrap"><table class="dtbl">
     <thead><tr><th>Mã đơn</th><th>Sản phẩm</th><th>Màu sắc</th><th class="num">Tổng SL</th><th>Xưởng GC</th><th>Ngày giao</th><th>Trạng thái</th><th></th></tr></thead>
     <tbody>${list.map(o=>{
@@ -4717,16 +4733,37 @@ function orderTableHTML(list){
 
 function renderOrderTable(){
   const q=_orderQ.trim().toLowerCase();
-  const filtered=q?db.orders.filter(o=>{
+  let filtered=db.orders;
+  if(_orderStatus!=='all') filtered=filtered.filter(o=>o.status===_orderStatus);
+  if(q) filtered=filtered.filter(o=>{
     const p=GP(o.productId);
     return(o.orderCode||'').toLowerCase().includes(q)||(p&&((p.name||'').toLowerCase().includes(q)||(p.code||'').toLowerCase().includes(q)));
-  }):db.orders;
+  });
   const wrap=document.getElementById('order-table-wrap');
   if(wrap) wrap.innerHTML=db.orders.length===0
     ?'<div class="empty"><i class="ti ti-clipboard-list"></i><p>Chưa có đơn hàng nào.</p></div>'
     :orderTableHTML(filtered);
   const info=document.getElementById('order-search-info');
-  if(info) info.textContent=q?`Tìm thấy ${filtered.length} / ${db.orders.length} đơn`:'';
+  if(info){
+    const hasFilter=q||_orderStatus!=='all';
+    info.textContent=hasFilter?`${filtered.length} / ${db.orders.length} đơn`:'';
+  }
+  // Update filter button styles
+  const filtersWrap=document.getElementById('order-status-filters');
+  if(filtersWrap){
+    [['all',null],['draft',ORDER_STATUS.draft],['confirmed',ORDER_STATUS.confirmed],
+     ['inprogress',ORDER_STATUS.inprogress],['done',ORDER_STATUS.done],['cancelled',ORDER_STATUS.cancelled]
+    ].forEach(([key,st])=>{
+      const btn=document.getElementById('osf-'+key);
+      if(!btn)return;
+      const active=_orderStatus===key;
+      const color=st?st.color:'var(--accent)';
+      const bg=st?st.bg:'#eff6ff';
+      btn.style.borderColor=active?color:'var(--border2)';
+      btn.style.background=active?bg:'var(--bg)';
+      btn.style.color=active?color:'var(--text2)';
+    });
+  }
 }
 
 // ── CHI TIẾT ĐƠN HÀNG ──
