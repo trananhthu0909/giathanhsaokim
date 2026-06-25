@@ -353,6 +353,9 @@ function calc(p){
       actual,actProfit,actPct,actStatus:actProfit===null?null:actProfit>0?'lãi':actProfit<0?'lỗ':'hòa vốn',
       actVsSug:actual>0&&sale>0?((actual-sale)/sale*100):null,
       partnerCost,partnerPct:0,fixedCost:p.fixedCost||0,
+      sellingCostFixed:p.sellingCostFixed||0,loanAmount:p.loanAmount||0,
+      interestRate:p.interestRate||0,loanPeriodMonths:p.loanPeriodMonths||1,
+      interestPerPeriod:0,totalFixedCost:p.fixedCost||0,
       marginUnit:actual>0?actual-cost:sale>0?sale-cost:0,
       breakEven:null,beRevenue:null,isMua:true};
   }
@@ -379,15 +382,22 @@ function calc(p){
   const actStatus=actProfit===null?null:actProfit>0?'lãi':actProfit<0?'lỗ':'hòa vốn';
 
   const fixedCost=p.fixedCost||0;
+  const sellingCostFixed=p.sellingCostFixed||0;
+  const loanAmount=p.loanAmount||0;
+  const interestRate=p.interestRate||0; // %/năm
+  const loanPeriodMonths=p.loanPeriodMonths||1;
+  const interestPerPeriod=loanAmount>0&&interestRate>0?(loanAmount*interestRate/100/12*loanPeriodMonths):0;
+  const totalFixedCost=fixedCost+sellingCostFixed+interestPerPeriod;
   const priceRef=actual>0?actual:sale;
   const marginUnit=priceRef-base-partnerCost;
-  const breakEven=fixedCost>0&&marginUnit>0?Math.ceil(fixedCost/marginUnit):null;
+  const breakEven=totalFixedCost>0&&marginUnit>0?Math.ceil(totalFixedCost/marginUnit):null;
   const beRevenue=breakEven?breakEven*priceRef:null;
   return{npl,gc,vc,cost,oh,profit:pr,sale,
     pNpl,pGc,pVc,pOh,pPr,
     actual,partnerCost,partnerPct,
     actProfit,actPct,actVsSug,actStatus,
-    fixedCost,breakEven,beRevenue,marginUnit};
+    fixedCost,sellingCostFixed,loanAmount,interestRate,loanPeriodMonths,interestPerPeriod,totalFixedCost,
+    breakEven,beRevenue,marginUnit};
 }
 
 // ── BÁO CÁO TỔNG HỢP ──
@@ -3403,21 +3413,70 @@ function sumHTML(p){
 
   <!-- BREAK-EVEN -->
   <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">
-    <div style="font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-      <i class="ti ti-chart-line" style="font-size:16px;color:var(--accent)"></i>Phân tích hòa vốn
+    <div style="font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+      <i class="ti ti-chart-line" style="font-size:16px;color:var(--accent)"></i>Phân tích điểm hòa vốn
     </div>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
-      <label style="font-size:13px;color:var(--text2);white-space:nowrap">Chi phí cố định (mặt bằng, máy móc…):</label>
-      <input type="number" value="${p.fixedCost||''}" placeholder="0 ₫" min="0"
-        style="padding:7px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;width:160px;color:var(--text)"
-        onchange="updF('${p.id}','fixedCost',+this.value)">
+
+    <!-- Nhập chi phí -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:14px">
+      <div>
+        <label class="fl">Chi phí cố định <span style="color:var(--text3);font-weight:400">(mặt bằng, máy móc…)</span></label>
+        <input type="number" value="${p.fixedCost||''}" placeholder="0 ₫" min="0"
+          style="padding:7px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;width:100%;color:var(--text)"
+          onchange="updF('${p.id}','fixedCost',+this.value)">
+      </div>
+      <div>
+        <label class="fl">Chi phí bán hàng cố định <span style="color:var(--text3);font-weight:400">(lương sale, marketing/kỳ)</span></label>
+        <input type="number" value="${p.sellingCostFixed||''}" placeholder="0 ₫" min="0"
+          style="padding:7px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;width:100%;color:var(--text)"
+          onchange="updF('${p.id}','sellingCostFixed',+this.value)">
+      </div>
     </div>
+
+    <!-- Lãi vay -->
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:600;color:#9a3412;margin-bottom:10px"><i class="ti ti-percentage" style="font-size:13px"></i> Lãi vay (nếu có vốn vay sản xuất)</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div>
+          <label class="fl" style="color:#9a3412">Số vốn vay (₫)</label>
+          <input type="number" value="${p.loanAmount||''}" placeholder="0" min="0"
+            style="padding:6px 10px;border:1px solid #fdba74;border-radius:7px;font-size:13px;font-family:inherit;width:100%;background:#fff"
+            onchange="updF('${p.id}','loanAmount',+this.value)">
+        </div>
+        <div>
+          <label class="fl" style="color:#9a3412">Lãi suất (%/năm)</label>
+          <input type="number" value="${p.interestRate||''}" placeholder="0" min="0" step="0.1"
+            style="padding:6px 10px;border:1px solid #fdba74;border-radius:7px;font-size:13px;font-family:inherit;width:100%;background:#fff"
+            onchange="updF('${p.id}','interestRate',+this.value)">
+        </div>
+        <div>
+          <label class="fl" style="color:#9a3412">Kỳ tính (tháng)</label>
+          <input type="number" value="${p.loanPeriodMonths||1}" placeholder="1" min="1"
+            style="padding:6px 10px;border:1px solid #fdba74;border-radius:7px;font-size:13px;font-family:inherit;width:100%;background:#fff"
+            onchange="updF('${p.id}','loanPeriodMonths',+this.value)">
+        </div>
+      </div>
+      ${c.interestPerPeriod>0?`<div style="font-size:12px;color:#9a3412;margin-top:8px">
+        💰 Lãi phải trả trong kỳ: <b>${fmt(c.interestPerPeriod)}</b>
+        <span style="color:#c2410c">(${fmt(p.loanAmount)} × ${p.interestRate}%/năm ÷ 12 × ${p.loanPeriodMonths} tháng)</span>
+      </div>`:''}
+    </div>
+
+    <!-- Tổng chi phí cố định -->
+    <div style="background:var(--bg2);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;font-weight:600;color:var(--text2)">Tổng chi phí cố định / kỳ</span>
+      <span style="font-size:18px;font-weight:700;color:var(--text)">${fmt(c.totalFixedCost)}</span>
+    </div>
+    ${c.totalFixedCost>0?`<div style="font-size:11px;color:var(--text3);margin-bottom:14px;margin-top:-8px">
+      = ${fmt(c.fixedCost)} (CP cố định) + ${fmt(c.sellingCostFixed)} (CP bán hàng) + ${fmt(c.interestPerPeriod)} (lãi vay)
+    </div>`:''}
+
     ${c.breakEven!==null?`
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
       <div class="stat-card" style="padding:14px 16px;border-color:var(--accent)">
         <div class="stat-lbl">Cần bán tối thiểu</div>
         <div style="font-size:22px;font-weight:700;color:var(--accent);margin-top:3px">${c.breakEven.toLocaleString('vi-VN')} sp</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:2px">để hòa vốn</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">để hòa vốn trong kỳ</div>
       </div>
       <div class="stat-card" style="padding:14px 16px">
         <div class="stat-lbl">LN / sp sau CP cố định</div>
@@ -3428,7 +3487,7 @@ function sumHTML(p){
         <div style="font-size:18px;font-weight:700;margin-top:3px">${fmtN(c.beRevenue)} ₫</div>
       </div>
     </div>`
-    :(p.fixedCost>0&&c.marginUnit<=0?
+    :(c.totalFixedCost>0&&c.marginUnit<=0?
       `<div style="background:var(--danger-bg);border-radius:8px;padding:10px 14px;color:var(--danger);font-size:13px"><i class="ti ti-alert-triangle" style="vertical-align:-2px"></i> Giá bán thấp hơn chi phí — không thể hòa vốn. Tăng giá bán hoặc giảm chi phí.</div>`
       :`<div style="font-size:13px;color:var(--text3);padding:8px 0">Nhập chi phí cố định để tính điểm hòa vốn.</div>`)}
   </div>`;
@@ -4152,7 +4211,10 @@ async function exportOrderExcel(id){
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=url; a.download=`${o.orderCode}_DinhMuc_${dateStr.replace(/\//g,'-')}.xlsx`;
+  const delivStr=o.deliveryDate?o.deliveryDate.split('-').reverse().join('-'):dateStr.replace(/\//g,'-');
+  const safeName=(p?.name||'SanPham').replace(/[\\/:*?"<>|]/g,'').trim();
+  const safeCode=(p?.code||o.orderCode||'').replace(/[\\/:*?"<>|]/g,'').trim();
+  a.href=url; a.download=`${safeName} - ${safeCode} - ${delivStr}.xlsx`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
