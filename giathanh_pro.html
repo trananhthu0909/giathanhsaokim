@@ -4211,7 +4211,7 @@ async function exportOrderExcel(id){
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  const delivStr=o.deliveryDate?o.deliveryDate.split('-').reverse().join('-'):dateStr.replace(/\//g,'-');
+  const delivStr=o.orderDate?o.orderDate.split('-').reverse().join('-'):dateStr.replace(/\//g,'-');
   const safeName=(p?.name||'SanPham').replace(/[\\/:*?"<>|]/g,'').trim();
   const safeCode=(p?.code||o.orderCode||'').replace(/[\\/:*?"<>|]/g,'').trim();
   a.href=url; a.download=`${safeName} - ${safeCode} - ${delivStr}.xlsx`;
