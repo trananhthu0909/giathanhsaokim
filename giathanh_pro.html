@@ -4722,10 +4722,33 @@ function renderOrderMonthlyStats(){
 
   // Nhóm theo tháng (dùng orderDate, fallback createdAt)
   const monthData={}; // {'2026-06':{draft:120,confirmed:0,...}}
+
+  // Chuẩn hóa ngày về yyyy-mm bất kể định dạng đầu vào
+  function getYM(o){
+    let raw=o.orderDate||o.createdAt||'';
+    if(!raw) return null;
+    raw=String(raw).split('T')[0].trim();
+    // yyyy-mm-dd
+    let m=raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if(m) return `${m[1]}-${m[2].padStart(2,'0')}`;
+    // dd/mm/yyyy hoặc d/m/yyyy
+    m=raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(m) return `${m[3]}-${m[2].padStart(2,'0')}`;
+    // yyyy/mm/dd
+    m=raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+    if(m) return `${m[1]}-${m[2].padStart(2,'0')}`;
+    // dd-mm-yyyy
+    m=raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if(m) return `${m[3]}-${m[2].padStart(2,'0')}`;
+    // Thử Date parse
+    const d=new Date(raw);
+    if(!isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    return null;
+  }
+
   db.orders.forEach(o=>{
-    const dateRaw=o.orderDate||(o.createdAt?o.createdAt.split('T')[0]:'')||'';
-    const ym=dateRaw.slice(0,7); // yyyy-mm
-    if(!ym||ym.length!==7) return;
+    const ym=getYM(o);
+    if(!ym) return;
     if(!monthData[ym]) monthData[ym]=STATUS_KEYS.reduce((a,k)=>(a[k]=0,a),{});
     const qty=(o.colors||[]).filter(c=>c.siType!=='phu').reduce((s,c)=>s+(c.qty||0),0);
     const st=STATUS_KEYS.includes(o.status)?o.status:'draft';
@@ -4763,7 +4786,8 @@ function renderOrderMonthlyStats(){
         ${months.map(m=>{
           const data=monthData[m];
           const total=STATUS_KEYS.reduce((s,k)=>s+data[k],0);
-          const [yy,mm]=m.split('-');
+          const parts=m.split('-');
+          const yy=parts[0], mm=parts[1]||'';
           return`<tr>
             <td style="font-weight:600">Tháng ${mm}/${yy}</td>
             ${STATUS_KEYS.map(k=>`<td class="num" style="color:${data[k]>0?ORDER_STATUS[k].color:'var(--text3)'}">${data[k]>0?data[k].toLocaleString('vi-VN'):'—'}</td>`).join('')}
