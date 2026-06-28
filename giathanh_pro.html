@@ -4716,6 +4716,48 @@ function exportOrdersCSV(){
 }
 
 // Thống kê SL hàng theo tháng & trạng thái đơn hàng
+function debugDoneOrders(){
+  const STATUS_KEYS=['draft','confirmed','inprogress','done','cancelled'];
+  function normYM(raw){
+    if(!raw) return null;
+    raw=String(raw).split('T')[0].trim();
+    let m=raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if(m) return `${m[1]}-${m[2].padStart(2,'0')}`;
+    m=raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(m) return `${m[3]}-${m[2].padStart(2,'0')}`;
+    m=raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+    if(m) return `${m[1]}-${m[2].padStart(2,'0')}`;
+    m=raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if(m) return `${m[3]}-${m[2].padStart(2,'0')}`;
+    const d=new Date(raw);
+    if(!isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    return null;
+  }
+  const done=db.orders.filter(o=>o.status==='done');
+  let txt='=== ĐƠN HOÀN THÀNH ('+done.length+' đơn) ===\n\n';
+  done.forEach(o=>{
+    const p=GP(o.productId);
+    const ym=normYM(o.deliveryDate||o.orderDate||o.createdAt);
+    const qty=(o.colors||[]).filter(c=>c.siType!=='phu').reduce((s,c)=>s+(c.qty||0),0);
+    txt+=`${o.orderCode||'?'} | ${p?p.name:'?'}\n`;
+    txt+=`  Ngày giao: ${o.deliveryDate||'(trống)'} | Ngày đơn: ${o.orderDate||'(trống)'}\n`;
+    txt+=`  → Xếp vào tháng: ${ym||'KHÔNG XÁC ĐỊNH'} | SL Sỉ chính: ${qty}\n\n`;
+  });
+  // Đếm theo tháng
+  const byMonth={};
+  done.forEach(o=>{
+    const ym=normYM(o.deliveryDate||o.orderDate||o.createdAt);
+    if(!byMonth[ym]) byMonth[ym]=0;
+    byMonth[ym]++;
+  });
+  txt+='=== TỔNG HỢP THEO THÁNG ===\n';
+  Object.keys(byMonth).sort().forEach(m=>txt+=`${m}: ${byMonth[m]} đơn\n`);
+
+  // Hiện trong modal
+  const w=window.open('','_blank','width=600,height=700');
+  w.document.write('<pre style="font-family:monospace;font-size:12px;padding:20px;white-space:pre-wrap">'+txt+'</pre>');
+}
+
 function renderOrderMonthlyStats(){
   if(!db.orders.length) return '';
   const STATUS_KEYS=['draft','confirmed','inprogress','done','cancelled'];
@@ -4741,6 +4783,7 @@ function renderOrderMonthlyStats(){
   }
 
   db.orders.forEach(o=>{
+    // Khớp với cột "Tổng SL" trong bảng đơn hàng (chỉ tính Sỉ chính)
     const qty=(o.colors||[]).filter(c=>c.siType!=='phu').reduce((s,c)=>s+(c.qty||0),0);
     const st=STATUS_KEYS.includes(o.status)?o.status:'draft';
     // Hoàn thành → tính theo ngày giao hàng; còn lại → ngày lên đơn
@@ -4760,8 +4803,9 @@ function renderOrderMonthlyStats(){
     <div style="font-size:13px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px">
       <i class="ti ti-chart-bar" style="color:var(--accent);font-size:16px"></i>
       Thống kê số lượng theo tháng & trạng thái
+      <button onclick="debugDoneOrders()" style="margin-left:auto;font-size:11px;padding:3px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--bg);cursor:pointer;color:var(--text2)"><i class="ti ti-bug"></i> Kiểm tra đơn HT</button>
     </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Số lớn = tổng SL sản phẩm (Sỉ chính) · Số nhỏ trong ngoặc = số đơn hàng · Hoàn thành tính theo ngày giao</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Số lớn = tổng SL sản phẩm · Số nhỏ trong ngoặc = số đơn hàng · Hoàn thành tính theo ngày giao</div>
     <!-- Legend -->
     <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap">
       ${STATUS_KEYS.map(k=>{
