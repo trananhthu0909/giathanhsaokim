@@ -3494,11 +3494,41 @@ function sumHTML(p){
 }
 
 // ── MATERIALS PAGE ──
+function uploadMatImage(matId,input){
+  const file=input.files[0]; if(!file)return;
+  if(!file.type.startsWith('image/')){alert('Vui lòng chọn file ảnh!');return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      // Nén ảnh về tối đa 400px để tiết kiệm localStorage
+      const max=400;
+      let w=img.width,h=img.height;
+      if(w>h&&w>max){h=h*max/w;w=max;}
+      else if(h>max){w=w*max/h;h=max;}
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const dataUrl=canvas.toDataURL('image/jpeg',0.8);
+      const m=db.materials.find(x=>x.id===matId);
+      if(m){m.image=dataUrl;m.updatedAt=today();saveDB();go('materials');}
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 function pMaterials(){
   const matSi =db.materials.filter(m=>(m.code||'').toUpperCase().startsWith('S'));
   const matNPL=db.materials.filter(m=>!(m.code||'').toUpperCase().startsWith('S'));
 
   const matRow=(m)=>`<tr>
+    <td style="width:56px;text-align:center">
+      ${m.image
+        ?`<img src="${m.image}" onclick="document.getElementById('mat-img-${m.id}').click()" style="width:44px;height:44px;object-fit:cover;border-radius:7px;cursor:pointer;border:1px solid var(--border2)" title="Nhấn để đổi ảnh">`
+        :`<div onclick="document.getElementById('mat-img-${m.id}').click()" style="width:44px;height:44px;border-radius:7px;background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px dashed var(--border2)" title="Nhấn để thêm ảnh"><i class="ti ti-camera-plus" style="color:var(--text3);font-size:16px"></i></div>`}
+      <input type="file" id="mat-img-${m.id}" accept="image/*" style="display:none" onchange="uploadMatImage('${m.id}',this)">
+    </td>
     <td>${m.code&&m.code.toUpperCase().startsWith('S')
       ?`<span class="badge" style="background:#fff1f2;color:#e11d48">${m.code}</span>`
       :`<span class="badge b-green">${m.code||'—'}</span>`}</td>
@@ -3514,7 +3544,7 @@ function pMaterials(){
   </tr>`;
 
   const thead=`<div class="tbl-wrap"><table class="dtbl">
-    <thead><tr><th>Mã</th><th>Tên</th><th>ĐVT</th><th class="num">Giá nhập (₫)</th><th>Nhà cung cấp</th><th>Cập nhật</th><th></th></tr></thead>
+    <thead><tr><th style="width:56px;text-align:center">Ảnh</th><th>Mã</th><th>Tên</th><th>ĐVT</th><th class="num">Giá nhập (₫)</th><th>Nhà cung cấp</th><th>Cập nhật</th><th></th></tr></thead>
     <tbody>`;
   const tfoot=`</tbody></table></div>`;
 
