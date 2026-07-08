@@ -4049,103 +4049,101 @@ async function exportOrderExcel(id){
     // Bảng MÀU SẮC & SL SẢN XUẤT
     let r=6;
 
-    // Sỉ chính
+    // Nhãn gộp
     const lblSC=ws.getRow(r); lblSC.getCell(1).value='MÀU SẮC & SỐ LƯỢNG SẢN XUẤT — SỈ CHÍNH';
     lblSC.getCell(1).font={bold:true,size:11,color:{argb:'FFE11D48'}}; lblSC.height=20; r++;
 
-    const hdrSC=ws.getRow(r);
-    ['Mã sỉ','Màu sắc','SL sản xuất (sp)','Định mức (m/sp)','SL sỉ cần (m)'].forEach((h,i)=>{
-      hdrSC.getCell(i+1).value=h;
-      hdrSC.getCell(i+1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFEAEA'}};
-      hdrSC.getCell(i+1).font={bold:true,size:10};
-      hdrSC.getCell(i+1).alignment={horizontal:'center'};
+    // Header: Sỉ chính (cột 1-5) + Sỉ phụ (cột 7-8)
+    const hdr=ws.getRow(r);
+    const HDR_SC=['Mã sỉ','Màu sắc','SL sản xuất (sp)','Định mức (m/sp)','SL sỉ cần (m)'];
+    HDR_SC.forEach((h,i)=>{
+      hdr.getCell(i+1).value=h;
+      hdr.getCell(i+1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFEAEA'}};
+      hdr.getCell(i+1).font={bold:true,size:10};
+      hdr.getCell(i+1).alignment={horizontal:'center',wrapText:true};
     });
-    hdrSC.height=18; r++;
+    // Sỉ phụ header (cột 7-8)
+    if(colorsPhu.length>0){
+      ['Sỉ phụ','SL sỉ cần (m)'].forEach((h,i)=>{
+        const cell=hdr.getCell(i+7);
+        cell.value=h;
+        cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFEF3C7'}};
+        cell.font={bold:true,size:10,color:{argb:'FFD97706'}};
+        cell.alignment={horizontal:'center',wrapText:true};
+      });
+    }
+    hdr.height=24; r++;
 
     const dmListSC=(p?p.bom||[]:[]).filter(b=>b.siType==='chinh'||(!b.siType&&(b.matCode||'').toUpperCase().startsWith('S')));
     const dmSC=dmListSC.reduce((s,b)=>s+(b.dm||0)*(1+(b.hh||0)/100),0);
-    let totalSlSC=0;
-    colorsChinh.forEach(c=>{
-      const dmC=getColorDm(o,p,c)||dmSC; // per-màu, fallback BOM
-      const slCan=+(((c.qty||0)*dmC).toFixed(2));
-      totalSlSC+=slCan;
+    const dmListSP=(p?p.bom||[]:[]).filter(b=>b.siType==='phu');
+    const dmSP=dmListSP.reduce((s,b)=>s+(b.dm||0)*(1+(b.hh||0)/100),0);
+
+    const maxRows=Math.max(colorsChinh.length,colorsPhu.length);
+    let totalSlSC=0,totalSlSP=0,totalQtySC=0,totalQtySP=0;
+
+    for(let i=0;i<maxRows;i++){
+      const c1=colorsChinh[i];
+      const c2=colorsPhu[i];
       const row=ws.getRow(r);
-      const hex=(c.colorHex||'#cccccc').replace('#','');
-      const argb='FF'+hex.toUpperCase();
-      const rr=parseInt(hex.slice(0,2),16),gg=parseInt(hex.slice(2,4),16),bb=parseInt(hex.slice(4,6),16);
-      const lum=(0.299*rr+0.587*gg+0.114*bb)/255;
-      const txtArgb=lum>0.5?'FF000000':'FFFFFFFF';
-      const siCode1=c.siMatCode||c.colorCode||'';
-      const siMat1=(db.materials||[]).find(m=>m.code===siCode1);
-      const siLabel1=siMat1?(siMat1.name||siCode1):siCode1||'—';
-      row.getCell(1).value=siLabel1||'—';
-      row.getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb}};
-      row.getCell(1).font={bold:true,color:{argb:txtArgb}};
-      row.getCell(2).value=c.colorName||'—';
-      row.getCell(3).value=c.qty||0;
-      row.getCell(4).value=dmC>0?+dmC.toFixed(3):'—';
-      row.getCell(5).value=slCan||0;
-      row.getCell(5).font={bold:true,color:{argb:'FF7C3AED'}};
-      row.height=16; r++;
-    });
-    const ttSC=ws.getRow(r);
-    ttSC.getCell(1).value='Tổng Sỉ chính';
-    ttSC.getCell(1).font={bold:true};
-    ttSC.getCell(3).value=colorsChinh.reduce((s,c)=>s+(c.qty||0),0);
-    ttSC.getCell(3).font={bold:true,color:{argb:'FFE11D48'}};
-    ttSC.getCell(5).value=+totalSlSC.toFixed(2);
-    ttSC.getCell(5).font={bold:true,color:{argb:'FF7C3AED'}};
-    r++; r++;
 
-    // Sỉ phụ (nếu có)
-    if(colorsPhu.length>0){
-      const lblSP=ws.getRow(r); lblSP.getCell(1).value='MÀU SẮC & SỐ LƯỢNG SẢN XUẤT — SỈ PHỤ';
-      lblSP.getCell(1).font={bold:true,size:11,color:{argb:'FFD97706'}}; lblSP.height=20; r++;
-
-      const hdrSP=ws.getRow(r);
-      ['Mã sỉ','Màu sắc','SL sản xuất (sp)','Định mức (m/sp)','SL sỉ cần (m)'].forEach((h,i)=>{
-        hdrSP.getCell(i+1).value=h;
-        hdrSP.getCell(i+1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFEF9EC'}};
-        hdrSP.getCell(i+1).font={bold:true,size:10};
-        hdrSP.getCell(i+1).alignment={horizontal:'center'};
-      });
-      hdrSP.height=18; r++;
-
-      const dmListSP=(p?p.bom||[]:[]).filter(b=>b.siType==='phu');
-      const dmSP=dmListSP.reduce((s,b)=>s+(b.dm||0)*(1+(b.hh||0)/100),0);
-      let totalSlSP=0;
-      colorsPhu.forEach(c=>{
-        const dmC=getColorDm(o,p,c)||dmSP; // per-màu, fallback BOM
-        const slCan=+(((c.qty||0)*dmC).toFixed(2));
-        totalSlSP+=slCan;
-        const row=ws.getRow(r);
-        const hex2=(c.colorHex||'#cccccc').replace('#','');
-        const argb2='FF'+hex2.toUpperCase();
-        const rr2=parseInt(hex2.slice(0,2),16),gg2=parseInt(hex2.slice(2,4),16),bb2=parseInt(hex2.slice(4,6),16);
-        const lum2=(0.299*rr2+0.587*gg2+0.114*bb2)/255;
-        const txtArgb2=lum2>0.5?'FF000000':'FFFFFFFF';
-        const siCode2=c.siMatCode||c.colorCode||'';
-        const siMat2=(db.materials||[]).find(m=>m.code===siCode2);
-        const siLabel2=siMat2?(siMat2.name||siCode2):siCode2||'—';
-        row.getCell(1).value=siLabel2||'—';
-        row.getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:argb2}};
-        row.getCell(1).font={bold:true,color:{argb:txtArgb2}};
-        row.getCell(2).value=c.colorName||'—';
-        row.getCell(3).value=c.qty||0;
+      // Sỉ chính (cột 1-5)
+      if(c1){
+        const dmC=getColorDm(o,p,c1)||dmSC;
+        const slCan=+(((c1.qty||0)*dmC).toFixed(2));
+        totalSlSC+=slCan; totalQtySC+=c1.qty||0;
+        const hex=(c1.colorHex||'#cccccc').replace('#','');
+        const argb='FF'+hex.toUpperCase();
+        const rr=parseInt(hex.slice(0,2),16),gg=parseInt(hex.slice(2,4),16),bb=parseInt(hex.slice(4,6),16);
+        const txtArgb=(0.299*rr+0.587*gg+0.114*bb)/255>0.5?'FF000000':'FFFFFFFF';
+        const siCode1=c1.siMatCode||c1.colorCode||'';
+        const siMat1=(db.materials||[]).find(m=>m.code===siCode1);
+        row.getCell(1).value=siMat1?(siMat1.name||siCode1):siCode1||'—';
+        row.getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb}};
+        row.getCell(1).font={bold:true,color:{argb:txtArgb}};
+        row.getCell(2).value=c1.colorName||'—';
+        row.getCell(3).value=c1.qty||0;
+        row.getCell(3).alignment={horizontal:'right'};
         row.getCell(4).value=dmC>0?+dmC.toFixed(3):'—';
+        row.getCell(4).alignment={horizontal:'right'};
         row.getCell(5).value=slCan||0;
         row.getCell(5).font={bold:true,color:{argb:'FF7C3AED'}};
-        row.height=16; r++;
-      });
-      const ttSP=ws.getRow(r);
-      ttSP.getCell(1).value='Tổng Sỉ phụ';
-      ttSP.getCell(1).font={bold:true};
-      ttSP.getCell(3).value=colorsPhu.reduce((s,c)=>s+(c.qty||0),0);
-      ttSP.getCell(3).font={bold:true,color:{argb:'FFD97706'}};
-      ttSP.getCell(5).value=+totalSlSP.toFixed(2);
-      ttSP.getCell(5).font={bold:true,color:{argb:'FF7C3AED'}};
-      r++; r++;
+        row.getCell(5).alignment={horizontal:'right'};
+      }
+
+      // Sỉ phụ (cột 7-8)
+      if(c2){
+        const dmC2=getColorDm(o,p,c2)||dmSP;
+        const slCan2=+(((c2.qty||0)*dmC2).toFixed(2));
+        totalSlSP+=slCan2; totalQtySP+=c2.qty||0;
+        const siCode2=c2.siMatCode||c2.colorCode||'';
+        const siMat2=(db.materials||[]).find(m=>m.code===siCode2);
+        const siLbl=siMat2?(siMat2.name||siCode2):siCode2||'—';
+        row.getCell(7).value=`${siLbl} · ${c2.colorName||''}`.trim();
+        row.getCell(7).font={size:10};
+        row.getCell(8).value=slCan2||0;
+        row.getCell(8).font={bold:true,color:{argb:'FF7C3AED'}};
+        row.getCell(8).alignment={horizontal:'right'};
+      }
+      row.height=16; r++;
     }
+
+    // Dòng tổng
+    const tt=ws.getRow(r);
+    tt.getCell(1).value='Tổng Sỉ chính';
+    tt.getCell(1).font={bold:true};
+    tt.getCell(3).value=totalQtySC;
+    tt.getCell(3).font={bold:true,color:{argb:'FFE11D48'}};
+    tt.getCell(3).alignment={horizontal:'right'};
+    tt.getCell(5).value=+totalSlSC.toFixed(2);
+    tt.getCell(5).font={bold:true,color:{argb:'FF7C3AED'}};
+    tt.getCell(5).alignment={horizontal:'right'};
+    if(colorsPhu.length>0){
+      tt.getCell(8).value=+totalSlSP.toFixed(2);
+      tt.getCell(8).font={bold:true,color:{argb:'FF7C3AED'}};
+      tt.getCell(8).alignment={horizontal:'right'};
+    }
+    r++; r++;
 
     return r;
   }
