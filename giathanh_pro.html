@@ -816,6 +816,7 @@ function importFinanceExcel(input){
   const file=input.files[0]; if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
+    const doProcess=(XLSX)=>{
     try{
       const wb=XLSX.read(e.target.result,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
@@ -873,6 +874,16 @@ function importFinanceExcel(input){
     }catch(err){
       alert('❌ Lỗi đọc file: '+err.message);
       input.value='';
+    }
+    };
+    // Load XLSX động nếu chưa có
+    if(typeof XLSX!=='undefined'){doProcess(XLSX);}
+    else{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload=()=>doProcess(window.XLSX);
+      s.onerror=()=>alert('Không tải được thư viện đọc Excel. Kiểm tra kết nối mạng.');
+      document.head.appendChild(s);
     }
   };
   reader.readAsArrayBuffer(file);
@@ -1882,6 +1893,7 @@ function importProductsFromExcel(input){
   const file=input.files[0]; if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
+    const doProcess=(XLSX)=>{
     try{
       const wb=XLSX.read(e.target.result,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
@@ -1954,6 +1966,15 @@ function importProductsFromExcel(input){
     }catch(err){
       alert('❌ Lỗi đọc file: '+err.message);
       input.value='';
+    }
+    };
+    if(typeof XLSX!=='undefined'){doProcess(XLSX);}
+    else{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload=()=>doProcess(window.XLSX);
+      s.onerror=()=>alert('Không tải được thư viện đọc Excel. Kiểm tra kết nối mạng.');
+      document.head.appendChild(s);
     }
   };
   reader.readAsArrayBuffer(file);
