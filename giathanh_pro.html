@@ -180,6 +180,7 @@ table.dtbl{width:100%;border-collapse:collapse}
     <div class="n-sec">Tổng quan</div>
     <div class="n-item" id="nav-dashboard" onclick="go('dashboard')"><i class="ti ti-layout-dashboard"></i>Tổng quan</div>
     <div class="n-item" id="nav-report" onclick="go('report')"><i class="ti ti-chart-bar"></i>Báo cáo tổng hợp</div>
+    <div class="n-item" id="nav-finance" onclick="go('finance')"><i class="ti ti-chart-pie" style="color:#0891b2"></i>Phân tích tài chính</div>
     <div class="n-sec">Quản lý</div>
     <div class="n-item" id="nav-products" onclick="go('products')"><i class="ti ti-tag"></i>Mã hàng thành phẩm</div>
     <div class="n-item" id="nav-orders" onclick="go('orders')"><i class="ti ti-clipboard-list"></i>Đơn hàng sản xuất</div>
@@ -332,6 +333,7 @@ function render(){
   else if(st.page==='congno'){el.innerHTML=pCongNo(st.pid||'xuong');bindCongNo();}
   else if(st.page==='phaithu'){el.innerHTML=pPhaiThu();bindPhaiThu();}
   else if(st.page==='report') {el.innerHTML=pReport(st.pid);bindReport();}
+  else if(st.page==='finance') {el.innerHTML=pFinance();}
   updateReminders();
 }
 
@@ -681,6 +683,235 @@ function pReport(yr){
   </div>`;
 }
 function bindReport(){}
+
+// ── PHÂN TÍCH TÀI CHÍNH ──
+function initFinance(){if(!db.financeData)db.financeData=[];if(!db.financeConfig)db.financeConfig={fixedCost:0,loanAmount:0,interestRate:0};}
+
+function pFinance(){
+  initFinance();
+  const data=db.financeData||[];
+  const cfg=db.financeConfig||{};
+
+  // Tổng hợp
+  let totalRev=0, totalCost=0;
+  data.forEach(d=>{totalRev+=(d.revenue||0);totalCost+=(d.totalCost||0);});
+  const totalProfit=totalRev-totalCost;
+  const margin=totalRev>0?(totalProfit/totalRev*100):0;
+  const avgMonthCost=data.length>0?totalCost/data.length:0;
+
+  // Điểm hòa vốn: dựa trên tỉ suất LN bình quân
+  const contribMargin=totalRev>0?(totalProfit/totalRev):0;
+  const beRevenue=contribMargin>0?(avgMonthCost/contribMargin):null;
+
+  return`<div class="page-hdr">
+    <div>
+      <div class="page-title"><i class="ti ti-chart-pie" style="color:#0891b2"></i> Phân tích tài chính</div>
+      <div class="page-sub">Doanh thu · Chi phí · Lợi nhuận theo tháng · ${data.length} kỳ dữ liệu</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sec" onclick="document.getElementById('finance-import-file').click()" style="border-color:#0891b2;color:#0891b2">
+        <i class="ti ti-file-import"></i> Import Excel
+      </button>
+      <input type="file" id="finance-import-file" accept=".xlsx,.xls" style="display:none" onchange="importFinanceExcel(this)">
+      <button class="btn btn-sec" onclick="downloadFinanceTemplate()"><i class="ti ti-download"></i> Tải file mẫu</button>
+    </div>
+  </div>
+
+  <!-- KPI -->
+  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+    <div class="stat-card" style="background:#eff6ff;border-color:#2563eb33">
+      <div class="stat-lbl" style="color:#1d4ed8">Tổng doanh thu</div>
+      <div style="font-size:20px;font-weight:700;color:#1d4ed8">${fmt(totalRev)}</div>
+    </div>
+    <div class="stat-card" style="background:#fef2f2;border-color:#ef444433">
+      <div class="stat-lbl" style="color:#dc2626">Tổng chi phí</div>
+      <div style="font-size:20px;font-weight:700;color:#dc2626">${fmt(totalCost)}</div>
+    </div>
+    <div class="stat-card" style="background:#f0fdf4;border-color:#22c55e33">
+      <div class="stat-lbl" style="color:#16a34a">Lợi nhuận</div>
+      <div style="font-size:20px;font-weight:700;color:${totalProfit>=0?'#16a34a':'#dc2626'}">${fmt(totalProfit)}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px">Tỉ suất ${margin.toFixed(1)}%</div>
+    </div>
+    <div class="stat-card" style="background:#fffbeb;border-color:#f59e0b33">
+      <div class="stat-lbl" style="color:#92400e">DT hòa vốn / kỳ</div>
+      <div style="font-size:18px;font-weight:700;color:#92400e">${beRevenue?fmt(Math.round(beRevenue)):'—'}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px">CM ${(contribMargin*100).toFixed(1)}%</div>
+    </div>
+  </div>
+
+  ${data.length===0?`<div class="card" style="padding:40px;text-align:center;color:var(--text3)">
+    <i class="ti ti-file-upload" style="font-size:44px;opacity:.3"></i>
+    <div style="margin-top:10px;font-size:14px">Chưa có dữ liệu tài chính.</div>
+    <div style="margin-top:4px;font-size:12px">Nhấn <b>Tải file mẫu</b> để xem cấu trúc, điền số liệu rồi <b>Import Excel</b>.</div>
+  </div>`:`
+
+  <!-- BIỂU ĐỒ LN THEO THÁNG -->
+  <div class="card" style="padding:18px 20px;margin-bottom:16px">
+    <div style="font-size:14px;font-weight:600;margin-bottom:16px"><i class="ti ti-chart-bar" style="color:var(--accent)"></i> Lợi nhuận theo tháng</div>
+    ${renderFinanceChart(data)}
+  </div>
+
+  <!-- BẢNG CHI TIẾT -->
+  <div class="card">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:14px;font-weight:600"><i class="ti ti-table" style="color:var(--accent)"></i> Chi tiết theo kỳ</div>
+      <button class="btn btn-sm btn-danger" onclick="if(confirm('Xóa toàn bộ dữ liệu tài chính?')){db.financeData=[];saveDB();go('finance')}"><i class="ti ti-trash"></i> Xóa hết</button>
+    </div>
+    <div class="tbl-wrap"><table class="dtbl">
+      <thead><tr><th>Kỳ / Tháng</th><th class="num">Doanh thu</th><th class="num">Chi phí</th><th class="num">Lợi nhuận</th><th class="num">Tỉ suất</th></tr></thead>
+      <tbody>
+        ${data.map((d,i)=>{
+          const profit=(d.revenue||0)-(d.totalCost||0);
+          const m=(d.revenue||0)>0?(profit/(d.revenue)*100):0;
+          return`<tr>
+            <td style="font-weight:600">${d.period||'—'}</td>
+            <td class="num" style="color:#1d4ed8">${fmt(d.revenue||0)}</td>
+            <td class="num" style="color:#dc2626">${fmt(d.totalCost||0)}</td>
+            <td class="num" style="font-weight:700;color:${profit>=0?'#16a34a':'#dc2626'}">${fmt(profit)}</td>
+            <td class="num" style="color:${m>=20?'#16a34a':m>=10?'#d97706':'#dc2626'}">${m.toFixed(1)}%</td>
+          </tr>`;
+        }).join('')}
+        <tr style="background:var(--bg2);font-weight:700">
+          <td>Tổng cộng</td>
+          <td class="num" style="color:#1d4ed8">${fmt(totalRev)}</td>
+          <td class="num" style="color:#dc2626">${fmt(totalCost)}</td>
+          <td class="num" style="color:${totalProfit>=0?'#16a34a':'#dc2626'}">${fmt(totalProfit)}</td>
+          <td class="num">${margin.toFixed(1)}%</td>
+        </tr>
+      </tbody>
+    </table></div>
+    ${data[0]&&data[0].costBreakdown?`<div style="padding:12px 18px;font-size:11px;color:var(--text3);border-top:1px solid var(--border)">Chi phí bao gồm các khoản: ${Object.keys(data[0].costBreakdown).join(', ')}</div>`:''}
+  </div>`}`;
+}
+
+function renderFinanceChart(data){
+  const W=Math.max(600, data.length*90), H=280, pad=50;
+  const maxVal=Math.max(1,...data.map(d=>Math.max(d.revenue||0,d.totalCost||0)));
+  const barW=Math.min(30,(W-pad*2)/data.length/3);
+  const gap=(W-pad*2)/data.length;
+  let bars='',labels='',line='';
+  data.forEach((d,i)=>{
+    const x=pad+i*gap+gap/2;
+    const rev=d.revenue||0, cost=d.totalCost||0, profit=rev-cost;
+    const hRev=(rev/maxVal)*(H-pad*2);
+    const hCost=(cost/maxVal)*(H-pad*2);
+    // Doanh thu (xanh) và chi phí (đỏ) cạnh nhau
+    bars+=`<rect x="${x-barW-2}" y="${H-pad-hRev}" width="${barW}" height="${hRev}" fill="#3b82f6" rx="2"/>`;
+    bars+=`<rect x="${x+2}" y="${H-pad-hCost}" width="${barW}" height="${hCost}" fill="#ef4444" rx="2"/>`;
+    labels+=`<text x="${x}" y="${H-pad+16}" text-anchor="middle" font-size="10" fill="#6b7280">${d.period||''}</text>`;
+    // LN label
+    labels+=`<text x="${x}" y="${H-pad-Math.max(hRev,hCost)-6}" text-anchor="middle" font-size="9" font-weight="600" fill="${profit>=0?'#16a34a':'#dc2626'}">${profit>=0?'+':''}${(profit/1e6).toFixed(0)}M</text>`;
+  });
+  return`<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:${W}px;height:${H}px">
+    <line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#e5e7eb"/>
+    ${bars}${labels}
+  </svg></div>
+  <div style="display:flex;gap:16px;justify-content:center;margin-top:8px;font-size:12px">
+    <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#3b82f6;border-radius:3px"></span>Doanh thu</span>
+    <span style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#ef4444;border-radius:3px"></span>Chi phí</span>
+  </div>`;
+}
+
+function importFinanceExcel(input){
+  const file=input.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+
+      // Tìm dòng header (chứa "tháng" hoặc "kỳ")
+      let hdrRow=-1;
+      for(let i=0;i<Math.min(rows.length,6);i++){
+        const r=rows[i].map(v=>String(v||'').toLowerCase());
+        if(r.some(v=>v.includes('tháng')||v.includes('thang')||v.includes('kỳ')||v.includes('doanh thu'))){hdrRow=i;break;}
+      }
+      if(hdrRow<0){alert('Không tìm thấy dòng header (Tháng, Doanh thu...)!');input.value='';return;}
+
+      const hdrs=rows[hdrRow].map(v=>String(v||'').toLowerCase().trim());
+      const iPeriod=hdrs.findIndex(v=>v.includes('tháng')||v.includes('thang')||v.includes('kỳ')||v.includes('ky'));
+      const iRev=hdrs.findIndex(v=>v.includes('doanh thu')||v.includes('doanhthu')||v.includes('revenue'));
+
+      if(iPeriod<0||iRev<0){alert('Cần có cột "Tháng" và "Doanh thu"!');input.value='';return;}
+
+      // Các cột chi phí = tất cả cột còn lại (trừ Tháng, Doanh thu, và cột tổng nếu có)
+      const costCols=[];
+      hdrs.forEach((h,i)=>{
+        if(i===iPeriod||i===iRev)return;
+        if(h.includes('lợi nhuận')||h.includes('loi nhuan')||h.includes('tỉ suất')||h.includes('ti suat')||h.includes('tổng lợi')||!h)return;
+        costCols.push({idx:i,name:rows[hdrRow][i]});
+      });
+
+      const parseNum=v=>{
+        if(typeof v==='number')return v;
+        return parseFloat(String(v).replace(/[^\d.-]/g,''))||0;
+      };
+
+      const newData=[];
+      rows.slice(hdrRow+1).forEach(r=>{
+        const period=String(r[iPeriod]||'').trim();
+        if(!period)return;
+        const revenue=parseNum(r[iRev]);
+        const costBreakdown={};
+        let totalCost=0;
+        costCols.forEach(cc=>{
+          const val=parseNum(r[cc.idx]);
+          costBreakdown[cc.name]=val;
+          totalCost+=val;
+        });
+        newData.push({period,revenue,totalCost,costBreakdown});
+      });
+
+      if(newData.length===0){alert('Không có dòng dữ liệu hợp lệ!');input.value='';return;}
+
+      db.financeData=newData;
+      saveDB();
+      input.value='';
+      alert(`✅ Import thành công ${newData.length} kỳ dữ liệu!\n\nCác cột chi phí nhận diện: ${costCols.map(c=>c.name).join(', ')}`);
+      go('finance');
+    }catch(err){
+      alert('❌ Lỗi đọc file: '+err.message);
+      input.value='';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function downloadFinanceTemplate(){
+  if(typeof ExcelJS==='undefined'){alert('Đang tải thư viện...');return;}
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('Tài chính');
+  ws.columns=[
+    {header:'Tháng',key:'p',width:14},
+    {header:'Doanh thu',key:'r',width:16},
+    {header:'CP Nguyên vật liệu',key:'c1',width:18},
+    {header:'CP Nhân công',key:'c2',width:16},
+    {header:'CP Vận hành',key:'c3',width:16},
+    {header:'CP Marketing',key:'c4',width:16},
+    {header:'CP Khác',key:'c5',width:14},
+  ];
+  ws.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};
+  ws.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF0891B2'}};
+  ws.getRow(1).height=22;
+  // Dữ liệu mẫu
+  const sample=[
+    ['Tháng 01/2026',450000000,180000000,80000000,30000000,25000000,15000000],
+    ['Tháng 02/2026',520000000,210000000,85000000,32000000,28000000,16000000],
+    ['Tháng 03/2026',480000000,195000000,82000000,31000000,26000000,15000000],
+  ];
+  sample.forEach(row=>ws.addRow(row));
+  ['B','C','D','E','F','G'].forEach(col=>{
+    for(let r=2;r<=4;r++) ws.getCell(col+r).numFmt='#,##0';
+  });
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='Mau_TaiChinh_SaoKim.xlsx';
+  a.click();URL.revokeObjectURL(a.href);
+}
+// ── END PHÂN TÍCH TÀI CHÍNH ──
 
 // ── KẾT NỐI HARAVAN ──
 function pHaravan(){
