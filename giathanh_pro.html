@@ -4291,7 +4291,9 @@ async function exportOrderExcel(id){
     const r1=ws.getRow(1); r1.getCell(1).value=`Số đơn hàng: ${o.orderCode}`; Object.assign(r1.getCell(1),boldStyle); r1.height=20;
     const r2=ws.getRow(2); r2.getCell(1).value=`Sản phẩm: ${p?`${p.code} – ${p.name}`:'—'}`; r2.height=18;
     const r3=ws.getRow(3); r3.getCell(1).value=`Xưởng gia công: ${facStr}`; r3.height=18;
-    const r4=ws.getRow(4); r4.getCell(1).value=`Ngày xuất: ${dateStr}`; r4.height=18;
+    const delivDate=o.deliveryDate?o.deliveryDate.split('-').reverse().join('/'):'(chưa có)';
+    const r4=ws.getRow(4); r4.getCell(1).value=`Ngày giao hàng: ${delivDate}`; r4.getCell(1).font={bold:true,size:11,color:{argb:'FFDC2626'}}; r4.height=18;
+    const r5=ws.getRow(5); r5.getCell(1).value=`Ngày xuất file: ${dateStr}`; r5.getCell(1).font={size:10,color:{argb:'FF6B7280'}}; r5.height=16;
 
     // Ảnh sản phẩm đặt bên phải (cột E) để không chồng lên text
     if(imgId!==null){
@@ -4299,7 +4301,7 @@ async function exportOrderExcel(id){
     }
 
     // Bảng MÀU SẮC & SL SẢN XUẤT
-    let r=6;
+    let r=7;
 
     // Nhãn gộp
     const lblSC=ws.getRow(r); lblSC.getCell(1).value='MÀU SẮC & SỐ LƯỢNG SẢN XUẤT — SỈ CHÍNH';
