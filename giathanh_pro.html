@@ -5180,24 +5180,32 @@ function pOrders(){
 
 function orderTableHTML(list){
   if(!list.length) return`<div class="empty"><i class="ti ti-zoom-question"></i><p>Không tìm thấy đơn hàng nào khớp với bộ lọc hiện tại.</p></div>`;
-  return`<div class="tbl-wrap"><table class="dtbl">
-    <thead><tr><th>Mã đơn</th><th>Sản phẩm</th><th>Màu sắc</th><th class="num">Tổng SL</th><th>Xưởng GC</th><th>Ngày giao</th><th>Trạng thái</th><th></th></tr></thead>
-    <tbody>${list.map(o=>{
+  let grandSi=0, grandNPL=0; // tổng CP Sỉ và CP NPL cần mua của tất cả đơn
+  const bodyRows=list.map(o=>{
       const p=GP(o.productId);
       const totalQty=(o.colors||[]).filter(c=>c.siType!=='phu').reduce((s,c)=>s+(c.qty||0),0);
+      // Tách chi phí: Sỉ (isSi) và NPL/phụ kiện (còn lại)
+      const mats=calcOrderMats(o);
+      let siCost=0, nplCost=0;
+      mats.forEach(m=>{
+        const cost=(m.toBuy||0)*(m.price||0);
+        if(m.isSi) siCost+=cost; else nplCost+=cost;
+      });
+      grandSi+=siCost; grandNPL+=nplCost;
       const thumb=p&&(p.images||[]).length
         ?`<img src="${p.images[0].data}" style="width:26px;height:26px;border-radius:5px;object-fit:cover;vertical-align:middle;margin-right:6px;border:1px solid var(--border)">`
         :'';
       const colorSwatches=(o.colors||[]).slice(0,6).map(c=>
         `<span title="${c.colorCode} ${c.colorName||''}" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${c.colorHex||'#ccc'};border:1px solid rgba(0,0,0,.12);margin-right:2px"></span>`
       ).join('')+((o.colors||[]).length>6?`<span style="font-size:11px;color:var(--text3)">+${(o.colors||[]).length-6}</span>`:'');
-      // Lấy tên xưởng từ o.facName hoặc p.processes
       const facName=o.facName||(p&&(p.processes||[]).length?(p.processes[0].facName||''):'');
       return`<tr onclick="go('order-detail','${o.id}')" style="cursor:pointer">
         <td><span class="badge b-blue">${o.orderCode||'—'}</span></td>
         <td>${thumb}<span style="font-weight:500">${p?p.name:'—'}</span> ${p?`<span class="badge b-blue" style="font-size:10px;margin-left:4px">${p.code}</span>`:''}</td>
         <td>${colorSwatches} <span style="font-size:12px;color:var(--text2)">${(o.colors||[]).length} màu</span></td>
         <td class="num" style="font-weight:600">${totalQty.toLocaleString('vi-VN')} sp</td>
+        <td class="num" style="font-weight:600;color:#e11d48">${siCost>0?fmt(siCost):'—'}</td>
+        <td class="num" style="font-weight:600;color:#d97706">${nplCost>0?fmt(nplCost):'—'}</td>
         <td style="font-size:12px">${facName?`<span style="display:inline-flex;align-items:center;gap:4px"><i class="ti ti-building-factory-2" style="color:#f59e0b;font-size:12px"></i>${facName}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
         <td style="color:var(--text2);font-size:12px">${o.deliveryDate||'—'}</td>
         <td>${statusBadge(o.status)}</td>
@@ -5206,7 +5214,17 @@ function orderTableHTML(list){
           <button class="btn btn-danger btn-sm" onclick="delOrder('${o.id}')"><i class="ti ti-trash"></i></button>
         </td>
       </tr>`;
-    }).join('')}</tbody>
+    }).join('');
+  return`<div class="tbl-wrap"><table class="dtbl">
+    <thead><tr><th>Mã đơn</th><th>Sản phẩm</th><th>Màu sắc</th><th class="num">Tổng SL</th><th class="num">CP Sỉ cần mua</th><th class="num">CP NPL cần mua</th><th>Xưởng GC</th><th>Ngày giao</th><th>Trạng thái</th><th></th></tr></thead>
+    <tbody>${bodyRows}
+    <tr style="background:var(--bg2);font-weight:700">
+      <td colspan="4" style="text-align:right">Tổng cộng (${list.length} đơn):</td>
+      <td class="num" style="color:#e11d48;font-size:14px">${fmt(grandSi)}</td>
+      <td class="num" style="color:#d97706;font-size:14px">${fmt(grandNPL)}</td>
+      <td colspan="3" style="font-size:12px;color:var(--text2)">Tổng: ${fmt(grandSi+grandNPL)}</td>
+    </tr>
+    </tbody>
   </table></div>`;
 }
 
