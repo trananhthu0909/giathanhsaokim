@@ -4497,7 +4497,8 @@ async function exportOrderExcel(id){
   const delivStr=o.orderDate?o.orderDate.split('-').reverse().join('-'):dateStr.replace(/\//g,'-');
   const safeName=(p?.name||'SanPham').replace(/[\\/:*?"<>|]/g,'').trim();
   const safeCode=(p?.code||o.orderCode||'').replace(/[\\/:*?"<>|]/g,'').trim();
-  a.href=url; a.download=`${safeName} - ${safeCode} - ${delivStr}.xlsx`;
+  const safeFac=(facStr&&facStr!=='—'?facStr:'').replace(/[\\/:*?"<>|]/g,'').replace(/,\s*/g,'-').trim();
+  a.href=url; a.download=`${safeName} - ${safeCode}${safeFac?' - '+safeFac:''} - ${delivStr}.xlsx`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
