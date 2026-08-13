@@ -4287,14 +4287,22 @@ async function exportOrderExcel(id){
 
   function writeHeader(ws){
     const boldStyle={font:{bold:true,size:11}};
+    // Tính giá gia công/sp theo xưởng đã chọn
+    let gcPrice=0;
+    if(p&&(p.processes||[]).length>0){
+      const facName=o.facName||'';
+      const procs=facName?(p.processes||[]).filter(pr=>pr.facName===facName):(p.processes||[]);
+      gcPrice=procs.reduce((s,pr)=>s+(parseFloat(pr.price)||0),0);
+    }
     // Header thông tin đơn hàng
     const r1=ws.getRow(1); r1.getCell(1).value=`Số đơn hàng: ${o.orderCode}`; Object.assign(r1.getCell(1),boldStyle); r1.height=20;
     const r2=ws.getRow(2); r2.getCell(1).value=`Sản phẩm: ${p?`${p.code} – ${p.name}`:'—'}`; r2.height=18;
     const r3=ws.getRow(3); r3.getCell(1).value=`Xưởng gia công: ${facStr}`; r3.height=18;
+    const r4=ws.getRow(4); r4.getCell(1).value=`Giá gia công: ${gcPrice>0?gcPrice.toLocaleString('vi-VN')+' đ/sp':'(chưa có)'}`; r4.getCell(1).font={bold:true,size:11,color:{argb:'FFD97706'}}; r4.height=18;
     const orderDateStr=o.orderDate?o.orderDate.split('-').reverse().join('/'):dateStr;
-    const r4=ws.getRow(4); r4.getCell(1).value=`Ngày lên đơn hàng: ${orderDateStr}`; r4.getCell(1).font={size:11}; r4.height=18;
+    const r5=ws.getRow(5); r5.getCell(1).value=`Ngày lên đơn hàng: ${orderDateStr}`; r5.getCell(1).font={size:11}; r5.height=18;
     const delivDate=o.deliveryDate?o.deliveryDate.split('-').reverse().join('/'):'(chưa có)';
-    const r5=ws.getRow(5); r5.getCell(1).value=`Ngày giao hàng: ${delivDate}`; r5.getCell(1).font={bold:true,size:11,color:{argb:'FFDC2626'}}; r5.height=18;
+    const r6=ws.getRow(6); r6.getCell(1).value=`Ngày giao hàng: ${delivDate}`; r6.getCell(1).font={bold:true,size:11,color:{argb:'FFDC2626'}}; r6.height=18;
 
     // Ảnh sản phẩm đặt bên phải (cột E) để không chồng lên text
     if(imgId!==null){
@@ -4302,7 +4310,7 @@ async function exportOrderExcel(id){
     }
 
     // Bảng MÀU SẮC & SL SẢN XUẤT
-    let r=7;
+    let r=8;
 
     // Nhãn gộp
     const lblSC=ws.getRow(r); lblSC.getCell(1).value='MÀU SẮC & SỐ LƯỢNG SẢN XUẤT — SỈ CHÍNH';
