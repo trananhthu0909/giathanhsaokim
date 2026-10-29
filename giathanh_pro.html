@@ -312,7 +312,7 @@ function render(){
   }
   else if(st.page==='materials') el.innerHTML=pMaterials();
   else if(st.page==='factories') el.innerHTML=pFactories();
-  else if(st.page==='orders') el.innerHTML=pOrders();
+  else if(st.page==='orders'){el.innerHTML=pOrders();if(_prodStatCode)setTimeout(renderProdStat,0);}
   else if(st.page==='import-orders') el.innerHTML=pImportOrders();
   else if(st.page==='import-tracking') el.innerHTML=pImportTracking();
   else if(st.page==='import-order-detail'){
@@ -4735,6 +4735,7 @@ function applyColorHex(oid,ci,hex){
 // ═══════════════════════════════════════
 let _orderQ='';
 let _orderStatus='all'; // 'all' | 'draft' | 'confirmed' | 'inprogress' | 'done' | 'cancelled'
+let _prodStatCode=''; // mã hàng cho bộ lọc thống kê SL theo mã
 
 const ORDER_STATUS={
   draft:     {label:'Nháp',           color:'#6b7280',bg:'#f3f4f6'},
@@ -5141,6 +5142,92 @@ function renderOrderMonthlyStats(){
   </div>`;
 }
 
+// Tra cứu SL sản xuất của 1 mã hàng: liệt kê đơn hoàn thành theo tháng
+function renderProdStat(){
+  const wrap=document.getElementById('prodstat-result');
+  if(!wrap) return;
+  const q=(_prodStatCode||'').trim().toLowerCase();
+  if(!q){ wrap.innerHTML=''; return; }
+
+  function normYM(raw){
+    if(!raw) return null;
+    raw=String(raw).split('T')[0].trim();
+    let m=raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); if(m) return `${m[1]}-${m[2].padStart(2,'0')}`;
+    m=raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if(m) return `${m[3]}-${m[2].padStart(2,'0')}`;
+    m=raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/); if(m) return `${m[1]}-${m[2].padStart(2,'0')}`;
+    m=raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/); if(m) return `${m[3]}-${m[2].padStart(2,'0')}`;
+    const d=new Date(raw); if(!isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    return null;
+  }
+  const fmtD=raw=>raw?String(raw).split('T')[0].split('-').reverse().join('/'):'—';
+
+  // Tìm sản phẩm khớp mã hoặc tên
+  const prods=(db.products||[]).filter(p=>(p.code||'').toLowerCase().includes(q)||(p.name||'').toLowerCase().includes(q));
+  if(!prods.length){
+    wrap.innerHTML=`<div style="padding:14px;background:var(--bg2);border-radius:8px;font-size:13px;color:var(--text3)">Không tìm thấy mã hàng khớp "<b>${_prodStatCode}</b>".</div>`;
+    return;
+  }
+  const pids=new Set(prods.map(p=>p.id));
+
+  // Lọc đơn HOÀN THÀNH của các mã này
+  const doneOrders=(db.orders||[]).filter(o=>o.status==='done'&&pids.has(o.productId));
+  if(!doneOrders.length){
+    const names=prods.slice(0,3).map(p=>`${p.code||''} ${p.name||''}`).join(', ');
+    wrap.innerHTML=`<div style="padding:14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:13px;color:#92400e">Tìm thấy ${prods.length} mã (${names}${prods.length>3?'...':''}) nhưng <b>chưa có đơn nào hoàn thành</b>.</div>`;
+    return;
+  }
+
+  // Gom theo mã hàng → theo tháng
+  const byProd={}; // productId -> {code,name,months:{ym:[{code,qty,date}]},total}
+  doneOrders.forEach(o=>{
+    const p=GP(o.productId); if(!p) return;
+    const qty=(o.colors||[]).filter(c=>c.siType!=='phu').reduce((s,c)=>s+(c.qty||0),0);
+    const ym=normYM(o.deliveryDate||o.orderDate||o.createdAt)||'(chưa rõ)';
+    if(!byProd[o.productId]) byProd[o.productId]={code:p.code,name:p.name,img:(p.images||[])[0]?.data,months:{},total:0,cnt:0};
+    const bp=byProd[o.productId];
+    if(!bp.months[ym]) bp.months[ym]=[];
+    bp.months[ym].push({code:o.orderCode,qty,date:o.deliveryDate||o.orderDate});
+    bp.total+=qty; bp.cnt++;
+  });
+
+  let html='';
+  Object.values(byProd).forEach(bp=>{
+    const yms=Object.keys(bp.months).sort().reverse();
+    const thumb=bp.img?`<img src="${bp.img}" style="width:40px;height:40px;object-fit:cover;border-radius:7px;border:1px solid var(--border)">`:'';
+    html+=`<div style="margin-top:14px;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <div style="padding:10px 14px;background:#faf5ff;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
+        ${thumb}
+        <div style="flex:1">
+          <span style="font-size:12px;color:#8b5cf6;font-weight:700">${bp.code||'—'}</span>
+          <span style="font-weight:600;margin-left:6px">${bp.name||''}</span>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:var(--text3)">Tổng SL hoàn thành</div>
+          <div style="font-size:17px;font-weight:700;color:#8b5cf6">${bp.total.toLocaleString('vi-VN')} sp <span style="font-size:11px;color:var(--text3);font-weight:400">(${bp.cnt} đơn)</span></div>
+        </div>
+      </div>
+      <div class="tbl-wrap"><table class="dtbl" style="font-size:12px">
+        <thead><tr><th>Tháng</th><th>Mã đơn</th><th class="num">SL sản xuất</th><th>Ngày giao</th></tr></thead>
+        <tbody>`;
+    yms.forEach(ym=>{
+      const list=bp.months[ym];
+      const sub=list.reduce((s,x)=>s+x.qty,0);
+      const [yy,mm]=ym.includes('-')?ym.split('-'):['',ym];
+      list.forEach((x,i)=>{
+        html+=`<tr>
+          ${i===0?`<td rowspan="${list.length}" style="font-weight:600;vertical-align:top;background:var(--bg)">Tháng ${mm}/${yy}</td>`:''}
+          <td><span class="badge b-blue">${x.code||'—'}</span></td>
+          <td class="num" style="font-weight:600">${x.qty.toLocaleString('vi-VN')}</td>
+          <td style="color:var(--text2)">${fmtD(x.date)}</td>
+        </tr>`;
+      });
+      html+=`<tr style="background:#f5f3ff"><td></td><td style="text-align:right;font-weight:600;color:#8b5cf6">Tổng tháng ${mm}/${yy}:</td><td class="num" style="font-weight:700;color:#8b5cf6">${sub.toLocaleString('vi-VN')}</td><td></td></tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+  });
+  wrap.innerHTML=html;
+}
+
 function pOrders(){
   const total=db.orders.length;
   return`
@@ -5182,6 +5269,23 @@ function pOrders(){
   </div>
   <!-- Thống kê SL theo tháng & trạng thái -->
   ${renderOrderMonthlyStats()}
+
+  <!-- Bộ lọc SL sản xuất theo mã hàng -->
+  <div class="card" style="margin-bottom:16px;padding:16px 18px">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <i class="ti ti-package" style="color:#8b5cf6;font-size:17px"></i>Tra cứu SL sản xuất theo mã hàng
+      <span style="font-size:11px;color:var(--text3);font-weight:400">— nhập mã hàng để xem tất cả đơn đã hoàn thành của mã đó theo tháng</span>
+    </div>
+    <div style="position:relative;max-width:420px;margin-bottom:6px">
+      <i class="ti ti-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:16px;pointer-events:none"></i>
+      <input type="text" id="prodstat-input" value="${_prodStatCode}" placeholder="Nhập mã hàng (VD: TXV-008) hoặc tên SP…"
+        oninput="_prodStatCode=this.value;renderProdStat()"
+        onkeydown="if(event.key==='Escape'){_prodStatCode='';this.value='';renderProdStat()}"
+        style="width:100%;padding:8px 12px 8px 34px;border:1px solid #c4b5fd;border-radius:9px;font-size:13px;font-family:inherit;color:var(--text);outline:none;background:#faf5ff"
+        onfocus="this.style.borderColor='#8b5cf6'" onblur="this.style.borderColor='#c4b5fd'">
+    </div>
+    <div id="prodstat-result"></div>
+  </div>
 
   <div class="card" id="order-table-wrap">
     ${total===0
